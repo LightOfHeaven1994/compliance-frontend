@@ -226,7 +226,6 @@ exports[`TableToolsTable expect to render without error 1`] = `
     dropdownPosition="right"
     expandId="expandable-toggle"
     gridBreakPoint="grid-md"
-    isNested={false}
     isStickyHeader={false}
     isTreeTable={false}
     onSort={[Function]}
@@ -477,7 +476,7 @@ exports[`TableToolsTable expect to render without error 1`] = `
     variant={null}
   >
     <TableHeader />
-    <TableBody />
+    <Component />
   </Table>
   <TableToolbar
     isFooter={true}

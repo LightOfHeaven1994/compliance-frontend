@@ -8,6 +8,7 @@ exports[`TabbedRules passes setSelectedRuleRefIds via internal handleSelect 1`] 
   <Tab
     eventKey="rules-b71376fd-015e-4209-99af-9"
     key="rules-b71376fd-015e-4209-99af-9"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -89,6 +90,7 @@ exports[`TabbedRules passes setSelectedRuleRefIds via internal handleSelect 1`] 
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ac-99"
     key="rules-b71376fd-015e-4209-99ac-99"
+    ouiaId="RHEL undefined.99"
     title={
       <span>
         <span
@@ -170,6 +172,7 @@ exports[`TabbedRules passes setSelectedRuleRefIds via internal handleSelect 1`] 
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ad-8"
     key="rules-b71376fd-015e-4209-99ad-8"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -259,6 +262,7 @@ exports[`TabbedRules renders tabs with default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99af-9"
     key="rules-b71376fd-015e-4209-99af-9"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -339,6 +343,7 @@ exports[`TabbedRules renders tabs with default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ac-99"
     key="rules-b71376fd-015e-4209-99ac-99"
+    ouiaId="RHEL undefined.99"
     title={
       <span>
         <span
@@ -419,6 +424,7 @@ exports[`TabbedRules renders tabs with default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ad-8"
     key="rules-b71376fd-015e-4209-99ad-8"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -507,6 +513,7 @@ exports[`TabbedRules renders tabs with second item as default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99af-9"
     key="rules-b71376fd-015e-4209-99af-9"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -587,6 +594,7 @@ exports[`TabbedRules renders tabs with second item as default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ac-99"
     key="rules-b71376fd-015e-4209-99ac-99"
+    ouiaId="RHEL undefined.99"
     title={
       <span>
         <span
@@ -667,6 +675,7 @@ exports[`TabbedRules renders tabs with second item as default 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ad-8"
     key="rules-b71376fd-015e-4209-99ad-8"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -755,6 +764,7 @@ exports[`TabbedRules sets selected rule ref ids 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99af-9"
     key="rules-b71376fd-015e-4209-99af-9"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span
@@ -835,6 +845,7 @@ exports[`TabbedRules sets selected rule ref ids 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ac-99"
     key="rules-b71376fd-015e-4209-99ac-99"
+    ouiaId="RHEL undefined.99"
     title={
       <span>
         <span
@@ -919,6 +930,7 @@ exports[`TabbedRules sets selected rule ref ids 1`] = `
   <Tab
     eventKey="rules-b71376fd-015e-4209-99ad-8"
     key="rules-b71376fd-015e-4209-99ad-8"
+    ouiaId="RHEL undefined.undefined"
     title={
       <span>
         <span

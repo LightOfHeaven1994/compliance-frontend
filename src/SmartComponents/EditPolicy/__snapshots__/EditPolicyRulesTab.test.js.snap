@@ -116,6 +116,7 @@ exports[`EditPolicyRulesTab expect to render with policy passed 1`] = `
         ]
       }
       level={1}
+      ouiaId="RHELVersions"
       remediationsEnabled={false}
       selectedFilter={true}
       selectedRuleRefIds={Array []}
@@ -235,6 +236,7 @@ exports[`EditPolicyRulesTab expect to render without error 1`] = `
         ]
       }
       level={1}
+      ouiaId="RHELVersions"
       remediationsEnabled={false}
       selectedFilter={true}
       selectedRuleRefIds={Array []}
