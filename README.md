@@ -20,8 +20,9 @@ Both will require to have hostnames like `stage.foo.redhat.com` resolve to the l
 Running webpack with "useProxy" can be used instead of insights-proxy for backend routes.
 
 ```shell
-$ npm run start:proxy
-$ npm run start:proxy:beta # Will run the UI with beta chrome
+$ npm run start  # Will run only webpack
+$ npm run start:proxy # Will run webpack and have proxying enabled
+$ LOCAL_APIS=compliance:3000,inventory:8081,ingress:8080,rbac:9002 npm run start:proxy # Will run webpack and have proxying enabled and route APIs to local endpoints
 ```
 
 ### In containers
@@ -101,6 +102,8 @@ To use them in/with Compliance and set routes for the locally running Inventory 
 ```sh
 $ LOCAL_APPS=inventory:8003 npm run start:proxy
 ```
+
+See also https://github.com/RedHatInsights/frontend-components/blob/master/packages/config/README.md#running-multiple-local-frontend-applications
 
 ###### Run compliance building and exposing federated modules
 

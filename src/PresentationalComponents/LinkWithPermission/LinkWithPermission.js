@@ -1,16 +1,22 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import { Tooltip } from '@patternfly/react-core';
-import { Link } from 'react-router-dom';
+import Link from '@redhat-cloud-services/frontend-components/InsightsLink';
 import useRoutePermissions from 'Utilities/hooks/useRoutePermissions';
-import useFeature from 'Utilities/hooks/useFeature';
 
 const NoOp = ({ children }) => children;
 NoOp.propTypes = {
   children: propTypes.node,
 };
 
-export const LinkWithRBAC = ({ to, children, ...linkProps }) => {
+export const LinkWithPermission = ({
+  to,
+  children,
+  Component,
+  componentProps = {},
+  ...linkProps
+}) => {
+  const ComponentToRender = Component || Link;
   const { hasAccess, isLoading } = useRoutePermissions(to);
   const hasPermission = !isLoading && hasAccess;
   const TooltipOrDiv = !hasPermission ? Tooltip : NoOp;
@@ -19,23 +25,24 @@ export const LinkWithRBAC = ({ to, children, ...linkProps }) => {
     <TooltipOrDiv
       content={<div>You do not have permissions to perform this action</div>}
     >
-      <Link to={to} {...linkProps} isDisabled={!hasPermission}>
+      <ComponentToRender
+        app="compliance"
+        to={to}
+        {...componentProps}
+        {...linkProps}
+        isDisabled={!hasPermission}
+      >
         {children}
-      </Link>
+      </ComponentToRender>
     </TooltipOrDiv>
   );
 };
 
-LinkWithRBAC.propTypes = {
+LinkWithPermission.propTypes = {
   to: propTypes.oneOfType([propTypes.string, propTypes.object]),
   children: propTypes.node,
-};
-
-const LinkWithPermission = (props) => {
-  const rbacEnabled = useFeature('rbac');
-  const Component = rbacEnabled ? LinkWithRBAC : Link;
-
-  return <Component {...props} />;
+  Component: propTypes.oneOfType([propTypes.func, propTypes.node]),
+  componentProps: propTypes.object,
 };
 
 export default LinkWithPermission;

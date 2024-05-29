@@ -1,11 +1,10 @@
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
-import gql from 'graphql-tag';
+import { useQuery, gql } from '@apollo/client';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
+
 import SkeletonTable from '@redhat-cloud-services/frontend-components/SkeletonTable';
 import {
   ReportsTable,
@@ -15,7 +14,7 @@ import {
 } from 'PresentationalComponents';
 
 const QUERY = gql`
-  query Profiles($filter: String!) {
+  query R_Profiles($filter: String!) {
     profiles(search: $filter, limit: 1000) {
       edges {
         node {
@@ -83,18 +82,18 @@ export const Reports = () => {
       <ReportsHeader />
       <StateViewWithError stateValues={{ error, data, loading }}>
         <StateViewPart stateKey="loading">
-          <Main>
+          <section className="pf-v5-c-page__main-section">
             <SkeletonTable colSize={3} rowSize={10} />
-          </Main>
+          </section>
         </StateViewPart>
         <StateViewPart stateKey="data">
-          <Main>
+          <section className="pf-v5-c-page__main-section">
             {showView ? (
               <ReportsTable {...{ profiles }} />
             ) : (
               <ReportsEmptyState />
             )}
-          </Main>
+          </section>
         </StateViewPart>
       </StateViewWithError>
     </>

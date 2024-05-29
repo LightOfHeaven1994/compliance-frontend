@@ -1,19 +1,18 @@
 import React, { useMemo, useState, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Alert, Spinner } from '@patternfly/react-core';
-import { TableVariant } from '@patternfly/react-table';
-// eslint-disable-next-line max-len
-import ComplianceRemediationButton from '@/PresentationalComponents/ComplianceRemediationButton';
+import { InventoryTable } from '@redhat-cloud-services/frontend-components/Inventory';
+import useNavigate from '@redhat-cloud-services/frontend-components-utilities/useInsightsNavigate';
+
+import RemediationButton from '@/PresentationalComponents/ComplianceRemediationButton/RemediationButton';
 import {
   DEFAULT_SYSTEMS_FILTER_CONFIGURATION,
   COMPLIANT_SYSTEMS_FILTER_CONFIGURATION,
 } from '@/constants';
 import { ErrorPage, StateView, StateViewPart } from 'PresentationalComponents';
 import useFilterConfig from 'Utilities/hooks/useTableTools/useFilterConfig';
-import { InventoryTable } from '@redhat-cloud-services/frontend-components/Inventory';
 import { policyFilter, defaultOnLoad, ssgVersionFilter } from './constants';
 import {
-  useFetchSystems,
   useGetEntities,
   useOsMinorVersionFilter,
   useInventoryUtilities,
@@ -21,7 +20,9 @@ import {
   useSystemsFilter,
   useSystemBulkSelect,
 } from './hooks';
+import useFetchSystems from './hooks/useFetchSystems';
 import { constructQuery } from '../../Utilities/helpers';
+import { COMPLIANCE_REPORT_TABLE_ADDITIONAL_FILTER } from '../../constants';
 
 export const SystemsTable = ({
   columns,
@@ -48,14 +49,17 @@ export const SystemsTable = ({
   tableProps,
   ssgVersions,
   dedicatedAction,
+  ruleSeverityFilter,
+  showGroupsFilter,
 }) => {
   const inventory = useRef(null);
   const [isEmpty, setIsEmpty] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [items, setItems] = useState([]);
   const [total, setTotal] = useState(0);
+  const [perPage, setPerPage] = useState(50);
   const [currentTags, setCurrentTags] = useState([]);
-
+  const navigateToInventory = useNavigate('inventory');
   const osMinorVersionFilter = useOsMinorVersionFilter(
     showOsMinorVersionFilter,
     {
@@ -78,6 +82,9 @@ export const SystemsTable = ({
         ...(policies?.length > 0 ? policyFilter(policies, showOsFilter) : []),
         ...(ssgVersions ? ssgVersionFilter(ssgVersions) : []),
         ...osMinorVersionFilter,
+        ...(ruleSeverityFilter
+          ? COMPLIANCE_REPORT_TABLE_ADDITIONAL_FILTER
+          : []),
       ],
     },
   });
@@ -87,17 +94,20 @@ export const SystemsTable = ({
     defaultFilter
   );
 
-  const constructedQuery = constructQuery(columns);
+  const constructedQuery = useMemo(() => constructQuery(columns), [columns]);
 
-  const systemFetchArguments = {
-    query: constructedQuery.query,
-    variables: {
-      ...constructedQuery.fragments,
-      tags: currentTags,
-      filter: systemsFilter,
-      ...(policyId && { policyId }),
-    },
-  };
+  const systemFetchArguments = useMemo(
+    () => ({
+      query: constructedQuery.query,
+      variables: {
+        ...constructedQuery.fragments,
+        tags: currentTags,
+        filter: systemsFilter,
+        ...(policyId && { policyId }),
+      },
+    }),
+    [constructedQuery, currentTags, systemsFilter, policyId]
+  );
 
   const preselection = useMemo(
     () => preselectedSystems.map(({ id }) => id),
@@ -106,16 +116,15 @@ export const SystemsTable = ({
 
   const {
     selectedIds,
-    selectedSystems,
     tableProps: bulkSelectTableProps,
     toolbarProps: bulkSelectToolBarProps,
   } = useSystemBulkSelect({
     total,
+    perPage,
     onSelect: onSelectProp,
     preselected: preselection,
     fetchArguments: systemFetchArguments,
     currentPageIds: items.map(({ id }) => id),
-    systemsCache: items,
   });
 
   useInventoryUtilities(inventory, selectedIds, activeFilterValues);
@@ -123,13 +132,16 @@ export const SystemsTable = ({
   const onComplete = (result) => {
     setTotal(result.meta.totalCount);
     setItems(result.entities);
+    setPerPage(result.perPage);
     setIsLoaded(true);
     setCurrentTags && setCurrentTags(result.meta.tags);
+
     if (
       emptyStateComponent &&
       result.meta.totalCount === 0 &&
       activeFilterValues.length === 0 &&
-      result?.meta?.tags?.length === 0
+      (typeof result?.meta?.tags === 'undefined' ||
+        result?.meta?.tags?.length === 0)
     ) {
       setIsEmpty(true);
     }
@@ -154,21 +166,29 @@ export const SystemsTable = ({
   });
 
   const mergedColumns = (defaultColumns) =>
-    columns.map((column) => {
+    columns.reduce((prev, column) => {
       const isStringCol = typeof column === 'string';
       const key = isStringCol ? column : column.key;
       const defaultColumn = defaultColumns.find(
         (defaultCol) => defaultCol.key === key
       );
-      return {
-        ...defaultColumn,
-        ...(isStringCol ? { key: column } : column),
-        props: {
-          ...defaultColumn?.props,
-          ...column?.props,
-        },
-      };
-    });
+
+      if (defaultColumn === undefined && column?.requiresDefault === true) {
+        return prev; // exclude if not found in inventory
+      } else {
+        return [
+          ...prev,
+          {
+            ...defaultColumn,
+            ...(isStringCol ? { key: column } : column),
+            props: {
+              ...defaultColumn?.props,
+              ...column?.props,
+            },
+          },
+        ];
+      }
+    }, []);
 
   return (
     <StateView
@@ -203,7 +223,11 @@ export const SystemsTable = ({
           noSystemsTable={noSystemsTable}
           ref={inventory}
           getEntities={getEntities}
-          hideFilters={{ all: true, tags: false }}
+          hideFilters={{
+            all: true,
+            tags: false,
+            hostGroupFilter: !showGroupsFilter,
+          }}
           showTags
           onLoad={defaultOnLoad(columns)}
           tableProps={{
@@ -212,13 +236,13 @@ export const SystemsTable = ({
             ...tableProps,
           }}
           fallback={<Spinner />}
-          variant={compact ? TableVariant.compact : ''}
+          {...(compact ? { variant: 'compact' } : {})}
           {...bulkSelectToolBarProps}
           {...(!showAllSystems && {
             ...conditionalFilter,
             ...(remediationsEnabled && {
               dedicatedAction: (
-                <ComplianceRemediationButton allSystems={selectedSystems} />
+                <RemediationButton policyId={policyId} systems={selectedIds} />
               ),
             }),
           })}
@@ -228,13 +252,8 @@ export const SystemsTable = ({
             actions: [
               {
                 title: 'View in inventory',
-                onClick: (_event, _index, { id }) => {
-                  const beta =
-                    window.location.pathname.split('/')[1] === 'beta';
-                  window.location.href = `${window.location.origin}${
-                    beta ? '/beta' : ''
-                  }/insights/inventory/${id}`;
-                },
+                onClick: (_event, _index, { id }) =>
+                  navigateToInventory('/' + id),
               },
             ],
           })}
@@ -257,6 +276,7 @@ SystemsTable.propTypes = {
   compliantFilter: PropTypes.bool,
   showOnlySystemsWithTestResults: PropTypes.bool,
   showOsFilter: PropTypes.bool,
+  showGroupsFilter: PropTypes.bool,
   showComplianceSystemsInfo: PropTypes.bool,
   error: PropTypes.object,
   compact: PropTypes.bool,
@@ -277,6 +297,7 @@ SystemsTable.propTypes = {
   tableProps: PropTypes.object,
   ssgVersions: PropTypes.array,
   dedicatedAction: PropTypes.object,
+  ruleSeverityFilter: PropTypes.bool,
 };
 
 SystemsTable.defaultProps = {
@@ -289,6 +310,8 @@ SystemsTable.defaultProps = {
   compact: false,
   remediationsEnabled: true,
   preselectedSystems: [],
+  ruleSeverityFilter: false,
+  showGroupsFilter: false,
 };
 
 export default SystemsTable;

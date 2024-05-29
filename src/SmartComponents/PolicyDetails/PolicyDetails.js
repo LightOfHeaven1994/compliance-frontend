@@ -1,8 +1,6 @@
 import React, { Fragment, useEffect } from 'react';
 import propTypes from 'prop-types';
-import gql from 'graphql-tag';
 import { useParams, useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,7 +11,6 @@ import {
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
 import Spinner from '@redhat-cloud-services/frontend-components/Spinner';
 import {
   PolicyDetailsDescription,
@@ -31,77 +28,24 @@ import PolicyRulesTab from './PolicyRulesTab';
 import PolicySystemsTab from './PolicySystemsTab';
 import PolicyMultiversionRules from './PolicyMultiversionRules';
 import './PolicyDetails.scss';
-
-export const QUERY = gql`
-  query Profile($policyId: String!) {
-    profile(id: $policyId) {
-      id
-      name
-      refId
-      external
-      description
-      totalHostCount
-      compliantHostCount
-      complianceThreshold
-      osMajorVersion
-      lastScanned
-      policyType
-      policy {
-        id
-        name
-        refId
-        profiles {
-          id
-          name
-          refId
-          osMinorVersion
-          osMajorVersion
-          benchmark {
-            id
-            title
-            latestSupportedOsMinorVersions
-            osMajorVersion
-            version
-          }
-          rules {
-            title
-            severity
-            rationale
-            refId
-            description
-            remediationAvailable
-            identifier
-            precedence
-          }
-        }
-      }
-      businessObjective {
-        id
-        title
-      }
-      hosts {
-        id
-        osMinorVersion
-      }
-    }
-  }
-`;
+import useSaveValueToPolicy from './hooks/useSaveValueToPolicy';
+import usePolicyQuery from 'Utilities/hooks/usePolicyQuery';
 
 export const PolicyDetails = ({ route }) => {
   const defaultTab = 'details';
   const { policy_id: policyId } = useParams();
-  const location = useLocation();
-  let { data, error, loading, refetch } = useQuery(QUERY, {
-    variables: { policyId },
+  const { data, error, loading, refetch } = usePolicyQuery({
+    policyId,
   });
-  let policy;
-  let hasOsMinorProfiles = true;
-  if (data && !loading) {
-    policy = data.profile;
-    hasOsMinorProfiles = !!policy.policy.profiles.find(
-      (profile) => !!profile.osMinorVersion
-    );
-  }
+  const location = useLocation();
+  const policy = data?.profile;
+  const hasOsMinorProfiles = !!policy?.policy.profiles.find(
+    (profile) => !!profile.osMinorVersion
+  );
+
+  const saveToPolicy = useSaveValueToPolicy(policy, () => {
+    refetch();
+  });
 
   useEffect(() => {
     refetch();
@@ -110,17 +54,19 @@ export const PolicyDetails = ({ route }) => {
   useTitleEntity(route, policy?.name);
 
   return (
-    <StateViewWithError stateValues={{ error, data, loading }}>
+    <StateViewWithError
+      stateValues={{ error, data: policy && !loading, loading }}
+    >
       <StateViewPart stateKey="loading">
         <PageHeader>
           <PolicyDetailsContentLoader />
         </PageHeader>
-        <Main>
+        <section className="pf-v5-c-page__main-section">
           <Spinner />
-        </Main>
+        </section>
       </StateViewPart>
       <StateViewPart stateKey="data">
-        {policy && (
+        {policy ? (
           <Fragment>
             <PageHeader className="page-header-tabs">
               <Breadcrumb ouiaId="PolicyDetailsPathBreadcrumb">
@@ -145,14 +91,18 @@ export const PolicyDetails = ({ route }) => {
                 <Tab title="Systems" id="policy-systems" eventKey="systems" />
               </RoutedTabs>
             </PageHeader>
-            <Main>
+            <section className="pf-v5-c-page__main-section">
               <TabSwitcher defaultTab={defaultTab}>
                 <ContentTab eventKey="details">
-                  <PolicyDetailsDescription policy={policy} />
+                  <PolicyDetailsDescription policy={policy} refetch={refetch} />
                 </ContentTab>
                 <ContentTab eventKey="rules">
                   {hasOsMinorProfiles ? (
-                    <PolicyMultiversionRules policy={policy} />
+                    <PolicyMultiversionRules
+                      policy={policy}
+                      saveToPolicy={saveToPolicy}
+                      onRuleValueReset={() => refetch()}
+                    />
                   ) : (
                     <PolicyRulesTab policy={policy} />
                   )}
@@ -161,8 +111,10 @@ export const PolicyDetails = ({ route }) => {
                   <PolicySystemsTab policy={policy} />
                 </ContentTab>
               </TabSwitcher>
-            </Main>
+            </section>
           </Fragment>
+        ) : (
+          ''
         )}
       </StateViewPart>
     </StateViewWithError>

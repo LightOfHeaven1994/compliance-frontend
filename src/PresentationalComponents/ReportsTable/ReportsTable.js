@@ -4,7 +4,6 @@ import { COMPLIANCE_TABLE_DEFAULTS } from '@/constants';
 import { emptyRows } from '../../Utilities/hooks/useTableTools/Components/NoResultsTable';
 import { TableToolsTable } from 'Utilities/hooks/useTableTools';
 import { uniq } from 'Utilities/helpers';
-import useFeature from 'Utilities/hooks/useFeature';
 import columns, { exportableColumns, PDFExportDownload } from './Columns';
 import {
   policyNameFilter,
@@ -12,10 +11,9 @@ import {
   operatingSystemFilter,
   policyComplianceFilter,
 } from './Filters';
+import '../../App.scss';
 
 const ReportsTable = ({ profiles }) => {
-  const manageColumnsEnabled = useFeature('manageColumns');
-  const pdfReportEnabled = useFeature('pdfReport');
   const policyTypes = uniq(
     profiles.map(({ policyType }) => policyType).filter((i) => !!i)
   );
@@ -27,10 +25,7 @@ const ReportsTable = ({ profiles }) => {
     <TableToolsTable
       aria-label="Reports"
       ouiaId="ReportsTable"
-      columns={[
-        ...columns,
-        ...((pdfReportEnabled && [PDFExportDownload]) || []),
-      ]}
+      columns={[...columns, PDFExportDownload]}
       items={profiles}
       isStickyHeader
       filters={{
@@ -49,9 +44,9 @@ const ReportsTable = ({ profiles }) => {
           ...COMPLIANCE_TABLE_DEFAULTS.exportable,
           columns: exportableColumns,
         },
-        manageColumns: manageColumnsEnabled,
         emptyRows: emptyRows('reports', columns.length),
       }}
+      className={'reports-table'}
     />
   );
 };

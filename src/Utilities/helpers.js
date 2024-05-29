@@ -1,6 +1,6 @@
 import React from 'react';
 import natsort from 'natsort';
-import { gql } from 'graphql-tag';
+import { gql } from '@apollo/client';
 
 export const uniq = (collection) => [...new Set(collection)];
 
@@ -103,27 +103,18 @@ export const constructQuery = (columns) => {
 
     fragment FailedRulesColumn on System {
       testResultProfiles(policyId: $policyId) {
-        refId
+        rulesFailed
         supported
         osMajorVersion
-        rules {
-          refId
-          title
-          compliant
-          remediationAvailable
-          precedence
-        }
+        score
       }
     }
 
     fragment ComplianceScoreColumn on System {
       testResultProfiles(policyId: $policyId) {
-        score
-        lastScanned
         compliant
-        rules {
-          compliant
-        }
+        supported
+        score
       }
     }
 
@@ -144,7 +135,11 @@ export const constructQuery = (columns) => {
       tags
     }
 
-    query getSystems(
+    fragment GroupsColumn on System {
+      groups
+    }
+
+    query U_Systems(
       $filter: String!
       $policyId: ID
       $perPage: Int
@@ -160,6 +155,7 @@ export const constructQuery = (columns) => {
       $lastScannedColumn: Boolean = false
       $updatedColumn: Boolean = false
       $tagsColumn: Boolean = false
+      $groupsColumn: Boolean = false
     ) {
       systems(
         search: $filter
@@ -184,6 +180,7 @@ export const constructQuery = (columns) => {
             ...LastScannedColumn @include(if: $lastScannedColumn)
             ...UpdatedColumn @include(if: $updatedColumn)
             ...TagsColumn @include(if: $tagsColumn)
+            ...GroupsColumn @include(if: $groupsColumn)
           }
         }
       }
@@ -194,4 +191,14 @@ export const constructQuery = (columns) => {
     query,
     fragments,
   };
+};
+
+export const logMultipleErrors = (...errors) => {
+  for (const error of errors) {
+    if (error) {
+      console.error(error);
+    }
+  }
+
+  return errors?.filter((v) => !!v).length > 0 || undefined;
 };

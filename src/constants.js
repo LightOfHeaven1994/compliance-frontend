@@ -5,8 +5,7 @@ import { dispatchNotification } from 'Utilities/Dispatcher';
 import sortBy from 'lodash/sortBy';
 
 export const APP_ID = 'compliance';
-export const DEFAULT_TITLE = 'Compliance | Red Hat Insights';
-export const DEFAULT_TITLE_SUFFIX = ` - ${DEFAULT_TITLE}`;
+export const DEFAULT_TITLE = 'Compliance';
 
 export const COMPLIANCE_API_ROOT = '/api/compliance';
 export const COMPLIANCE_UI_ROOT = '/rhel/compliance';
@@ -19,7 +18,7 @@ export const API_HEADERS = {
 };
 
 export const supportedConfigsLink =
-  'https://access.redhat.com/documentation/en-us/red_hat_insights/2022/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/con-compl-assess-overview_compl-assess-overview#con-compl-assess-supported-configurations_compl-assess-overview';
+  'https://access.redhat.com/articles/6644131';
 
 import React from 'react';
 import {
@@ -200,6 +199,20 @@ export const COMPLIANT_SYSTEMS_FILTER_CONFIGURATION = [
   },
 ];
 
+export const COMPLIANCE_REPORT_TABLE_ADDITIONAL_FILTER = [
+  {
+    type: conditionalFilterType.checkbox,
+    label: 'Failed rule severity',
+    filterString: (value) => `failed_rules_with_severity ^ (${value})`,
+    items: [
+      { label: HIGH_SEVERITY, value: 'high' },
+      { label: MEDIUM_SEVERITY, value: 'medium' },
+      { label: LOW_SEVERITY, value: 'low' },
+      { label: UNKNOWN_SEVERITY, value: 'unknown' },
+    ],
+  },
+];
+
 export const COMPLIANCE_TABLE_DEFAULTS = {
   exportable: {
     onStart: () => {
@@ -219,9 +232,15 @@ export const COMPLIANCE_TABLE_DEFAULTS = {
   manageColumns: true,
 };
 
-export const features = {
-  pdfReport: true,
-  manageColumns: true,
-  systemsNotReporting: true,
-  rbac: true,
+export const paletteColors = {
+  black300: '#D2D2D2', // '--pf-global--palette--black-300',
+  black200: '#F0F0F0', // --pf-global--palette--black-200,
+  blue200: '#73BCF7', // '--pf-global--palette--blue-200',
+  blue300: '#2B9AF3', //'--pf-global--palette--blue-300',
+  blue400: '#0066CC', //'--pf-global--palette--blue-400',
+  gold300: '#F4C145', //--pf-global--palette--gold-300',
+};
+
+export const backgroundColors = {
+  light300: '#f0f0f0', //'--pf-global--BackgroundColor--light-300',
 };

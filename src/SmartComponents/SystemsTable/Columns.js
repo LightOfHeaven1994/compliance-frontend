@@ -1,8 +1,8 @@
+/* eslint-disable testing-library/render-result-naming-convention */
 import React from 'react';
 import { nowrap } from '@patternfly/react-table';
 import { Tooltip } from '@patternfly/react-core';
 import { complianceScoreString } from 'PresentationalComponents';
-import { profilesRulesFailed } from 'Utilities/ruleHelpers';
 import { renderComponent } from 'Utilities/helpers';
 
 import {
@@ -86,14 +86,17 @@ export const Policies = {
 export const FailedRules = {
   title: 'Failed rules',
   key: 'failedRules',
-  exportKey: 'testResultProfiles',
+  exportKey: 'profiles',
   transforms: [nowrap],
+  sortBy: ['rulesFailed'],
   props: {
     width: 5,
-    ...disableSorting,
   },
-  renderExport: (testResultProfiles) =>
-    profilesRulesFailed(testResultProfiles).length,
+  renderExport: (profiles) =>
+    profiles.reduce(
+      (failedRules, { rulesFailed }) => failedRules + rulesFailed,
+      0
+    ),
   renderFunc: renderComponent(FailedRulesCell),
 };
 
@@ -101,10 +104,10 @@ export const ComplianceScore = {
   title: 'Compliance score',
   key: 'complianceScore',
   exportKey: 'testResultProfiles',
+  sortBy: ['score'],
   transforms: [nowrap],
   props: {
     width: 5,
-    ...disableSorting,
   },
   renderExport: (testResultProfiles) =>
     complianceScoreString(complianceScoreData(testResultProfiles)).trim(),
