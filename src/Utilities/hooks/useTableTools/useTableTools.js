@@ -11,6 +11,7 @@ import useColumnManager from './useColumnManager';
 import { useRadioSelectWithItems } from './useRadioSelect';
 import { useActionResolverWithItems } from './useActionResolver';
 import { useExportWithItems } from './useExport';
+import useTreeTable from './useTreeTable';
 
 const filteredAndSortedItems = (items, filter, sorter) => {
   const filtered = filter ? filter(items) : items;
@@ -20,14 +21,20 @@ const filteredAndSortedItems = (items, filter, sorter) => {
 const useTableTools = (items = [], columns = [], options = {}) => {
   const { toolbarProps: toolbarPropsOption, tableProps: tablePropsOption } =
     options;
-
   const identifiedItems = useItemIdentify(items, options);
-
   const {
     columnManagerAction,
     ColumnManager,
     columns: managedColumns,
   } = useColumnManager(columns, options);
+
+  const {
+    toolbarProps: treeTableToolbarProps,
+    showTreeTable,
+    TreeTableToggle,
+    setTableType,
+    tableType,
+  } = useTreeTable(options);
 
   const { toolbarProps: toolbarActionsProps } = useToolbarActions({
     ...options,
@@ -41,24 +48,35 @@ const useTableTools = (items = [], columns = [], options = {}) => {
     toolbarProps: pagintionToolbarProps,
     setPage,
     paginator,
-  } = usePaginate(options);
+  } = usePaginate({
+    ...options,
+    showTreeTable,
+  });
 
   const {
     toolbarProps: conditionalFilterProps,
     filter,
     selectedFilterToolbarProps,
+    activeFilters,
   } = useFilterConfig({
     ...options,
     setPage,
+    onFilter: () => setTableType?.('list'),
   });
 
-  const { transformer: openItem, tableProps: expandableProps } =
-    useExpandable(options);
+  const {
+    transformer: openItem,
+    tableProps: expandableProps,
+    openItems,
+  } = useExpandable({
+    ...options,
+    showTreeTable,
+  });
 
   const { tableProps: sortableTableProps, sorter } = useTableSortWithItems(
     items,
     managedColumns,
-    options
+    { ...options, tableType }
   );
 
   const {
@@ -66,12 +84,15 @@ const useTableTools = (items = [], columns = [], options = {}) => {
     toolbarProps: bulkSelectToolbarProps,
     tableProps: bulkSelectTableProps,
     selectedItems,
+    selectItems,
+    unselectItems,
   } = useBulkSelectWithItems({
     ...options,
     items: sorter(identifiedItems),
     filter,
     paginator,
     setPage,
+    showTreeTable,
   });
 
   const { tableProps: radioSelectTableProps } = useRadioSelectWithItems({
@@ -112,6 +133,16 @@ const useTableTools = (items = [], columns = [], options = {}) => {
     paginator,
     filter,
     sorter,
+    itemIdentifier: options.identifier,
+    tableTree: options.tableTree,
+    detailsComponent: options.detailsComponent,
+    selectItems,
+    unselectItems,
+    expandOnFilter: options.expandOnFilter,
+    activeFilters,
+    showTreeTable,
+    onCollapse: expandableProps?.onCollapse,
+    openItems,
   });
 
   const toolbarProps = {
@@ -124,23 +155,25 @@ const useTableTools = (items = [], columns = [], options = {}) => {
     ...toolbarPropsOption,
     ...exportToolbarProps,
     ...toolbarActionsProps,
+    ...treeTableToolbarProps,
   };
 
   const tableProps = {
     cells: managedColumns,
-    ...rowBuilderTableProps,
     ...sortableTableProps,
     ...bulkSelectTableProps,
     ...expandableProps,
     ...radioSelectTableProps,
     ...actionResolverTableProps,
     ...tablePropsOption,
+    ...rowBuilderTableProps,
   };
 
   return {
     toolbarProps,
     tableProps,
     ColumnManager,
+    TreeTableToggle,
   };
 };
 

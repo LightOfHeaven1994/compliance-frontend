@@ -5,11 +5,8 @@ import { NoSystemsTableWithWarning } from 'PresentationalComponents';
 import { SystemsTable } from 'SmartComponents';
 import * as Columns from '../SystemsTable/Columns';
 import EditSystemsButtonToolbarItem from './EditSystemsButtonToolbarItem';
-import { useAnchor } from 'Utilities/Router';
 
 const PolicySystemsTab = ({ policy }) => {
-  const anchor = useAnchor();
-
   return (
     <SystemsTable
       columns={[
@@ -29,16 +26,8 @@ const PolicySystemsTab = ({ policy }) => {
         policy?.hosts?.length === 0 && <NoSystemsTableWithWarning />
       }
       complianceThreshold={policy.complianceThreshold}
-      dedicatedAction={
-        <EditSystemsButtonToolbarItem
-          to={`/scappolicies/${policy.id}/edit`}
-          state={{ policy }}
-          hash={anchor}
-          backgroundLocation={{ hash: 'details' }}
-          variant="primary"
-          ouiaId="EditSystemsButton"
-        />
-      }
+      dedicatedAction={<EditSystemsButtonToolbarItem policy={policy} />}
+      apiV2Enabled={false} //TODO: change to useAPIV2FeatureFlag when migrating to REST
     />
   );
 };
@@ -46,7 +35,7 @@ const PolicySystemsTab = ({ policy }) => {
 PolicySystemsTab.propTypes = {
   policy: propTypes.shape({
     id: propTypes.string.isRequired,
-    complianceThreshold: propTypes.number.isRequired,
+    complianceThreshold: propTypes.string.isRequired,
     osMajorVersion: propTypes.string.isRequired,
     hosts: propTypes.array.isRequired,
   }),

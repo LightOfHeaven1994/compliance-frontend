@@ -7,7 +7,7 @@
 export IMAGE="quay.io/cloudservices/compliance-frontend"
 export WORKSPACE=${WORKSPACE:-$APP_ROOT} # if running in jenkins, use the build's workspace
 export APP_ROOT=$(pwd)
-export NODE_BUILD_VERSION=15
+export NODE_BUILD_VERSION=18
 COMMON_BUILDER=https://raw.githubusercontent.com/RedHatInsights/insights-frontend-builder-common/master
 
 set -exv
@@ -23,7 +23,7 @@ export DEPLOY_FRONTENDS="true"
 export IQE_ENV="ephemeral"
 export IQE_SELENIUM="true"
 export IQE_CJI_TIMEOUT="30m"
-export REF_ENV="insights-stage"
+export REF_ENV="insights-production"
 export COMPONENTS_W_RESOURCES="compliance"
 export COMPONENT_NAME="compliance-frontend"
 

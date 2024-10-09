@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import propTypes from 'prop-types';
-import { useQuery } from '@apollo/client';
-import gql from 'graphql-tag';
+import { gql, useQuery } from '@apollo/client';
 import {
   Text,
   TextVariants,
@@ -19,10 +18,10 @@ import {
   StateViewPart,
   SupportedSSGVersionsLink,
   RulesTable,
+  LinkWithPermission as Link,
 } from 'PresentationalComponents';
 import { pluralize } from 'Utilities/TextHelper';
 import OsVersionText from './OsVersionText';
-import { Link } from 'react-router-dom';
 import { ExternalLinkAltIcon } from '@patternfly/react-icons';
 import ResetRules from '../ResetRules/ResetRules';
 
@@ -56,7 +55,7 @@ SSGVersionText.propTypes = {
 };
 
 const SSGPopoverBody = ({ profile, newOsMinorVersion }) => (
-  <TextContent style={{ fontSize: 'var(--pf-c-popover--FontSize)' }}>
+  <TextContent style={{ fontSize: 'var(--pf-v5-c-popover--FontSize)' }}>
     <Text>
       This is the latest supported version of the SCAP Security Guide (SSG) for{' '}
       <OsVersionText {...{ profile, newOsMinorVersion }} />
@@ -73,8 +72,8 @@ SSGPopoverBody.propTypes = {
   newOsMinorVersion: propTypes.string,
 };
 
-const BENCHMARK_QUERY = gql`
-  query benchmarkQuery($id: String!) {
+export const BENCHMARK_QUERY = gql`
+  query PTC_Benchmark($id: String!) {
     benchmark(id: $id) {
       id
       osMajorVersion
@@ -87,6 +86,7 @@ const BENCHMARK_QUERY = gql`
         description
         remediationAvailable
         identifier
+        values
       }
     }
   }
@@ -102,6 +102,9 @@ const ProfileTabContent = ({
   newOsMinorVersion,
   resetLink,
   rulesPageLink,
+  setRuleValues,
+  ruleValues,
+  onRuleValueReset,
 }) => {
   const {
     data: benchmark,
@@ -119,9 +122,9 @@ const ProfileTabContent = ({
   return (
     <React.Fragment>
       <Grid>
-        <TextContent className="pf-u-mt-md">
+        <TextContent className="pf-v5-u-mt-md">
           <Text component={TextVariants.h3}>
-            <span className="pf-u-pr-sm">
+            <span className="pf-v5-u-pr-sm">
               <OsVersionText {...{ profile, newOsMinorVersion }} />
             </span>
             <ProfileSystemCount count={systemCount} />
@@ -135,10 +138,10 @@ const ProfileTabContent = ({
                 <Link
                   to={`/scappolicies/${profile?.id}/default_ruleset`}
                   target="_blank"
-                  className="pf-u-mr-xl"
+                  className="pf-v5-u-mr-xl"
                 >
                   View policy rules
-                  <ExternalLinkAltIcon className="pf-u-ml-sm" />
+                  <ExternalLinkAltIcon className="pf-v5-u-ml-sm" />
                 </Link>
               )}
               {resetLink && (
@@ -165,7 +168,14 @@ const ProfileTabContent = ({
             ansibleSupportFilter
             remediationsEnabled={false}
             columns={columns}
-            profileRules={[{ profile, rules: rules || [] }]}
+            profileRules={[
+              {
+                profile,
+                rules: rules || [],
+                valueDefinitions: profile?.benchmark?.valueDefinitions,
+                ruleValues,
+              },
+            ]}
             selectedRules={selectedRuleRefIds.map(
               (refId) => `${profile.id}|${refId}`
             )}
@@ -180,6 +190,8 @@ const ProfileTabContent = ({
                   )
                 ))
             }
+            setRuleValues={setRuleValues}
+            onRuleValueReset={onRuleValueReset}
             {...rulesTableProps}
           />
         </StateViewPart>
@@ -193,11 +205,14 @@ ProfileTabContent.propTypes = {
   newOsMinorVersion: propTypes.string,
   columns: propTypes.array,
   handleSelect: propTypes.func,
-  systemCount: propTypes.object,
+  systemCount: propTypes.number,
   selectedRuleRefIds: propTypes.array,
   rulesTableProps: propTypes.object,
   resetLink: propTypes.bool,
   rulesPageLink: propTypes.bool,
+  setRuleValues: propTypes.func,
+  ruleValues: propTypes.array,
+  onRuleValueReset: propTypes.func,
 };
 
 export default ProfileTabContent;

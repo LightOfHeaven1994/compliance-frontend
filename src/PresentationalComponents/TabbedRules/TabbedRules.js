@@ -39,6 +39,9 @@ const TabbedRules = ({
   ouiaId,
   resetLink,
   rulesPageLink,
+  setRuleValues,
+  ruleValues,
+  onRuleValueReset,
   ...rulesTableProps
 }) => {
   const handleSelect = useCallback(
@@ -66,11 +69,14 @@ const TabbedRules = ({
     >
       {tabsData?.map(({ profile, newOsMinorVersion, systemCount }) => (
         <Tab
+          aria-label={`Rules for RHEL ${profile.osMajorVersion}.${
+            profile.osMinorVersion || newOsMinorVersion
+          }`}
           key={eventKey(profile, newOsMinorVersion)}
           eventKey={eventKey(profile, newOsMinorVersion)}
           title={
             <span>
-              <span className="pf-u-pr-sm">
+              <span className="pf-v5-u-pr-sm">
                 <OsVersionText
                   profile={profile}
                   newOsMinorVersion={newOsMinorVersion}
@@ -96,6 +102,9 @@ const TabbedRules = ({
                 newOsMinorVersion
               ),
               handleSelect: setSelectedRuleRefIds ? handleSelect : undefined,
+              setRuleValues,
+              ruleValues,
+              onRuleValueReset,
               resetLink: resetLink,
               rulesPageLink: rulesPageLink,
             }}
@@ -131,6 +140,9 @@ TabbedRules.propTypes = {
   ouiaId: propTypes.string,
   resetLink: propTypes.bool,
   rulesPageLink: propTypes.bool,
+  setRuleValues: propTypes.func,
+  ruleValues: propTypes.array,
+  onRuleValueReset: propTypes.func,
 };
 
 export default TabbedRules;

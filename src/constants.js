@@ -5,8 +5,7 @@ import { dispatchNotification } from 'Utilities/Dispatcher';
 import sortBy from 'lodash/sortBy';
 
 export const APP_ID = 'compliance';
-export const DEFAULT_TITLE = 'Compliance | Red Hat Insights';
-export const DEFAULT_TITLE_SUFFIX = ` - ${DEFAULT_TITLE}`;
+export const DEFAULT_TITLE = 'Compliance';
 
 export const COMPLIANCE_API_ROOT = '/api/compliance';
 export const COMPLIANCE_UI_ROOT = '/rhel/compliance';
@@ -18,8 +17,13 @@ export const API_HEADERS = {
   Accept: 'application/json',
 };
 
+// Add a localStorage entry with the key "insights:compliance:asynctables" and value "true" to enable async tables
+export const ENABLE_ASYNC_TABLE_HOOKS = localStorage
+  ? localStorage.getItem('insights:compliance:asynctables') === 'true'
+  : false;
+
 export const supportedConfigsLink =
-  'https://access.redhat.com/documentation/en-us/red_hat_insights/2022/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/con-compl-assess-overview_compl-assess-overview#con-compl-assess-supported-configurations_compl-assess-overview';
+  'https://access.redhat.com/articles/6644131';
 
 import React from 'react';
 import {
@@ -72,19 +76,30 @@ export const UNKNOWN_SEVERITY = (
 
 export const SEVERITY_LEVELS = ['high', 'medium', 'low', 'unknown'];
 
-export const DEFAULT_SYSTEMS_FILTER_CONFIGURATION = [
+export const DEFAULT_SYSTEMS_FILTER_CONFIGURATION_GRAPHQL = 'name';
+export const DEFAULT_SYSTEMS_FILTER_CONFIGURATION_REST = 'display_name';
+
+export const defaultSystemsFilterConfiguration = (
+  filterKey = DEFAULT_SYSTEMS_FILTER_CONFIGURATION_REST
+) => [
   {
     type: conditionalFilterType.text,
     label: 'Name',
-    filterString: (value) => `name ~ ${value}`,
+    filterString: (value) => `${filterKey} ~ ${value}`,
   },
 ];
 
-export const systemsPolicyFilterConfiguration = (policies) => [
+export const POLICY_FILTER_KEY_GRAPHQL = 'policy_id';
+export const POLICY_FILTER_KEY_REST = 'policies';
+
+export const systemsPolicyFilterConfiguration = (
+  policies,
+  filterKey = POLICY_FILTER_KEY_REST
+) => [
   {
     type: conditionalFilterType.checkbox,
     label: 'Policy',
-    filterString: (value) => `policy_id = ${value}`,
+    filterString: (value) => `${filterKey} = ${value}`,
     items: policies.map((policy) => ({
       label: policy.name,
       value: policy.id,
@@ -166,7 +181,23 @@ export const systemsOsMinorFilterConfiguration = (osMajorVersions) => {
   ];
 };
 
-export const COMPLIANT_SYSTEMS_FILTER_CONFIGURATION = [
+export const COMPLIANT_SYSTEM_FILTER_CONFIG_KEYS_GRAPHQL = {
+  compliant: 'compliant',
+  supported: 'supported_ssg',
+  neverReported: 'reported',
+  complianceScore: 'compliance_score',
+};
+
+export const COMPLIANT_SYSTEM_FILTER_CONFIG_KEYS_REST = {
+  compliant: 'compliant',
+  supported: 'supported',
+  neverReported: 'never_reported',
+  complianceScore: 'score',
+};
+
+export const compliantSystemFilterConfiguration = (
+  filterKeys = COMPLIANT_SYSTEM_FILTER_CONFIG_KEYS_REST
+) => [
   {
     type: conditionalFilterType.checkbox,
     label: 'Compliance',
@@ -174,14 +205,14 @@ export const COMPLIANT_SYSTEMS_FILTER_CONFIGURATION = [
     items: [
       {
         label: 'Compliant',
-        value: 'compliant = true AND supported_ssg = true',
+        value: `${filterKeys.compliant} = true AND ${filterKeys.supported} = true`,
       },
       {
         label: 'Non-compliant',
-        value: 'compliant = false AND supported_ssg = true',
+        value: `${filterKeys.compliant} = false AND ${filterKeys.supported} = true`,
       },
-      { label: 'Not supported', value: 'supported_ssg = false' },
-      { label: 'Never reported', value: 'reported = false' },
+      { label: 'Not supported', value: `${filterKeys.supported} = false` },
+      { label: 'Never reported', value: `${filterKeys.neverReported} = false` },
     ],
   },
   {
@@ -189,13 +220,34 @@ export const COMPLIANT_SYSTEMS_FILTER_CONFIGURATION = [
     label: 'Compliance score',
     filterString: (value) => {
       const scoreRange = value.split('-');
-      return `(compliance_score >= ${scoreRange[0]} and compliance_score < ${scoreRange[1]})`;
+      return `(${filterKeys.complianceScore} >= ${scoreRange[0]} and ${filterKeys.complianceScore} < ${scoreRange[1]})`;
     },
     items: [
       { label: '90 - 100%', value: '90-101' },
       { label: '70 - 89%', value: '70-90' },
       { label: '50 - 69%', value: '50-70' },
       { label: 'Less than 50%', value: '0-50' },
+    ],
+  },
+];
+
+export const FAILED_RULE_SEVERITY_FITLER_KEY_GRAPHQL =
+  'failed_rules_with_severity';
+
+export const FAILED_RULE_SEVERITY_FITLER_KEY_REST = 'failed_rule_severity';
+
+export const complianceReportTableAdditionalFilter = (
+  filterKey = FAILED_RULE_SEVERITY_FITLER_KEY_REST
+) => [
+  {
+    type: conditionalFilterType.checkbox,
+    label: 'Failed rule severity',
+    filterString: (value) => `${filterKey} ^ (${value})`,
+    items: [
+      { label: HIGH_SEVERITY, value: 'high' },
+      { label: MEDIUM_SEVERITY, value: 'medium' },
+      { label: LOW_SEVERITY, value: 'low' },
+      { label: UNKNOWN_SEVERITY, value: 'unknown' },
     ],
   },
 ];
@@ -219,9 +271,63 @@ export const COMPLIANCE_TABLE_DEFAULTS = {
   manageColumns: true,
 };
 
-export const features = {
-  pdfReport: true,
-  manageColumns: true,
-  systemsNotReporting: true,
-  rbac: true,
+export const paletteColors = {
+  black300: '#D2D2D2', // '--pf-global--palette--black-300',
+  black200: '#F0F0F0', // --pf-global--palette--black-200,
+  blue200: '#73BCF7', // '--pf-global--palette--blue-200',
+  blue300: '#2B9AF3', //'--pf-global--palette--blue-300',
+  blue400: '#0066CC', //'--pf-global--palette--blue-400',
+  gold300: '#F4C145', //--pf-global--palette--gold-300',
+};
+
+export const backgroundColors = {
+  light300: '#f0f0f0', //'--pf-global--BackgroundColor--light-300',
+};
+
+export const systemsDataMapper = {
+  display_name: 'name',
+  culled_timestamp: 'culled_timestamp',
+  os_major_version: 'osMajorVersion',
+  os_minor_version: 'osMinorVersion',
+  stale_timestamp: 'stale_timestamp',
+  stale_warning_timestamp: 'stale_warning_timestamp',
+  policies: {
+    policies: {
+      id: 'id',
+      title: 'name',
+    },
+  },
+  groups: {
+    groups: {
+      id: 'id',
+      name: 'name',
+    },
+  },
+  id: 'id',
+  insights_id: 'insightsId',
+  tags: {
+    tags: {
+      key: 'key',
+      value: 'value',
+      namespace: 'namespace',
+    },
+  },
+  updated: 'updated',
+};
+
+export const reportDataMap = {
+  id: 'id',
+  title: 'policy.name;name',
+  business_objective: 'businessObjective',
+  compliance_threshold: 'complianceThreshold',
+  os_major_version: 'osMajorVersion',
+  profile_title: 'policyType', // REST api does not return policyType. Thus, re-using profile_title
+  ref_id: 'refId',
+  assigned_system_count: 'totalHostCount',
+  reported_system_count: 'testResultHostCount',
+  compliant_system_count: 'compliantHostCount',
+  unsupported_system_count: 'unsupportedHostCount',
+  description: 'description',
+  all_systems_exposed: 'all_systems_exposed',
+  percent_compliant: 'percent_compliant',
 };
