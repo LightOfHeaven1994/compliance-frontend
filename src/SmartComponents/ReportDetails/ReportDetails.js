@@ -1,125 +1,56 @@
 /* eslint-disable react/display-name */
 import React from 'react';
-import black300 from '@patternfly/react-tokens/dist/esm/global_palette_black_300';
-import blue200 from '@patternfly/react-tokens/dist/esm/chart_color_blue_200';
-import blue300 from '@patternfly/react-tokens/dist/esm/chart_color_blue_300';
 import propTypes from 'prop-types';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
-import gql from 'graphql-tag';
-import { ChartDonut, ChartThemeVariant } from '@patternfly/react-charts';
 import {
   Breadcrumb,
   BreadcrumbItem,
+  EmptyState,
   Grid,
   GridItem,
-  Text,
 } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
-import EmptyTable from '@redhat-cloud-services/frontend-components/EmptyTable';
 import Spinner from '@redhat-cloud-services/frontend-components/Spinner';
-import { fixedPercentage, pluralize } from 'Utilities/TextHelper';
 import {
-  BackgroundLink,
+  LinkWithPermission as Link,
   BreadcrumbLinkItem,
   ReportDetailsContentLoader,
   ReportDetailsDescription,
   StateViewWithError,
   StateViewPart,
-  UnsupportedSSGVersion,
   SubPageTitle,
   LinkButton,
 } from 'PresentationalComponents';
 import { useTitleEntity } from 'Utilities/hooks/useDocumentTitle';
-import useFeature from 'Utilities/hooks/useFeature';
 import { SystemsTable } from 'SmartComponents';
 import '@/Charts.scss';
 import './ReportDetails.scss';
 import * as Columns from '../SystemsTable/Columns';
-import { default as ReportDetailsWithNotReportedSystems } from './ReportDetailsWithNotReportedSystems';
+import ReportedSystemRow from './Components/ReportedSystemRow';
+import ReportChart from './Components/ReportChart';
+import { useReport } from '../../Utilities/hooks/api/useReport';
+import useAPIV2FeatureFlag from '../../Utilities/hooks/useAPIV2FeatureFlag';
+import { dataMap, QUERY } from './constants';
+import dataSerialiser from '../../Utilities/dataSerialiser';
 
-export const QUERY = gql`
-  query Profile($policyId: String!) {
-    profile(id: $policyId) {
-      id
-      name
-      refId
-      testResultHostCount
-      compliantHostCount
-      unsupportedHostCount
-      complianceThreshold
-      osMajorVersion
-      lastScanned
-      policyType
-      policy {
-        id
-        name
-      }
-      businessObjective {
-        id
-        title
-      }
-    }
-  }
-`;
-
-export const ReportDetails = ({ route }) => {
-  const { report_id: policyId } = useParams();
-  const pdfReportEnabled = useFeature('pdfReport');
-  const { data, error, loading } = useQuery(QUERY, {
-    variables: { policyId },
-    fetchPolicy: 'no-cache',
-  });
-  let donutValues = [];
-  let donutId = 'loading-donut';
-  let chartColorScale;
+const ReportDetailsBase = ({
+  route,
+  data,
+  error,
+  loading,
+  ssgVersions = [],
+}) => {
   let profile = {};
   let policyName;
-  let legendData;
-  let compliancePercentage;
   let pageTitle;
 
   if (!loading && data) {
-    profile = data.profile;
+    profile = data;
     policyName = profile.policy.name;
     pageTitle = `Report: ${policyName}`;
-    const compliantHostCount = profile.compliantHostCount;
-    const testResultHostCount = profile.testResultHostCount;
-    donutId = profile.name.replace(/ /g, '');
-    donutValues = [
-      { x: 'Compliant', y: testResultHostCount ? compliantHostCount : '0' },
-      { x: 'Non-compliant', y: testResultHostCount - compliantHostCount },
-    ];
-    chartColorScale = (testResultHostCount === 0 && [black300.value]) || [
-      blue300.value,
-      blue200.value,
-    ];
-    legendData = [
-      {
-        name:
-          donutValues[0].y +
-          ' ' +
-          pluralize(donutValues[0].y, 'system') +
-          ' compliant',
-      },
-      {
-        name:
-          donutValues[1].y +
-          ' ' +
-          pluralize(donutValues[1].y, 'system') +
-          ' non-compliant',
-      },
-    ];
-    compliancePercentage = testResultHostCount
-      ? fixedPercentage(
-          Math.floor(
-            100 * (donutValues[0].y / (donutValues[0].y + donutValues[1].y))
-          )
-        )
-      : 0;
   }
 
   useTitleEntity(route, policyName);
@@ -130,11 +61,11 @@ export const ReportDetails = ({ route }) => {
         <PageHeader>
           <ReportDetailsContentLoader />
         </PageHeader>
-        <Main>
-          <EmptyTable>
+        <section className="pf-v5-c-page__main-section">
+          <EmptyState>
             <Spinner />
-          </EmptyTable>
-        </Main>
+          </EmptyState>
+        </section>
       </StateViewPart>
       <StateViewPart stateKey="data">
         <PageHeader>
@@ -155,81 +86,59 @@ export const ReportDetails = ({ route }) => {
               lg={3}
               xl={3}
             >
-              {pdfReportEnabled && (
-                <BackgroundLink
-                  state={{ profile }}
-                  to={`/reports/${profile.id}/pdf`}
-                  component={LinkButton}
-                  ouiaId="ReportDetailsDownloadReportPDFLink"
-                  variant="plain"
-                  className="pf-u-mr-md"
-                >
-                  Download PDF
-                </BackgroundLink>
-              )}
-              <BackgroundLink
+              <Link
+                state={{ profile }}
+                to={`/reports/${profile.id}/pdf`}
+                className="pf-v5-u-mr-md"
+                Component={LinkButton}
+                componentProps={{
+                  variant: 'primary',
+                  ouiaId: 'ReportDetailsDownloadReportPDFLink',
+                }}
+              >
+                Download PDF
+              </Link>
+              <Link
                 state={{ profile }}
                 to={`/reports/${profile.id}/delete`}
-                component={LinkButton}
-                variant="link"
-                ouiaId="ReportDetailsDeleteReportLink"
-                isInline
+                Component={LinkButton}
+                componentProps={{
+                  isInline: true,
+                  variant: 'link',
+                  ouiaId: 'ReportDetailsDeleteReportLink',
+                }}
               >
                 Delete report
-              </BackgroundLink>
+              </Link>
             </GridItem>
           </Grid>
           <Grid hasGutter>
             <GridItem sm={12} md={12} lg={12} xl={6}>
-              <div className="chart-inline">
-                <div className="chart-container">
-                  <ChartDonut
-                    data={donutValues}
-                    identifier={donutId}
-                    title={compliancePercentage}
-                    subTitle="Compliant"
-                    themeVariant={ChartThemeVariant.light}
-                    colorScale={chartColorScale}
-                    style={{ fontSize: 20 }}
-                    constrainToVisibleArea={true}
-                    innerRadius={88}
-                    width={462}
-                    legendPosition="right"
-                    legendData={legendData}
-                    legendOrientation="vertical"
-                    padding={{
-                      bottom: 20,
-                      left: 0,
-                      right: 250,
-                      top: 20,
-                    }}
-                  />
-                </div>
-              </div>
-              {profile.unsupportedHostCount > 0 && (
-                <Text>
-                  <UnsupportedSSGVersion showHelpIcon>
-                    <strong className="ins-c-warning-text">
-                      {profile.unsupportedHostCount} systems not supported
-                    </strong>
-                  </UnsupportedSSGVersion>
-                </Text>
-              )}
+              <ReportChart
+                profile={profile}
+                hasLegend={true}
+                chartClass="report-details-chart-container"
+              />
             </GridItem>
             <GridItem sm={12} md={12} lg={12} xl={6}>
               <ReportDetailsDescription profile={profile} />
             </GridItem>
           </Grid>
         </PageHeader>
-        <Main>
+        <section className="pf-v5-c-page__main-section">
           <Grid hasGutter>
             <GridItem span={12}>
               <SystemsTable
                 showOsMinorVersionFilter={[profile.osMajorVersion]}
+                ssgVersions={ssgVersions}
                 columns={[
                   Columns.customName({
                     showLink: true,
                     showOsInfo: true,
+                  }),
+                  Columns.inventoryColumn('groups', {
+                    requiresDefault: true,
+                    sortBy: ['groups'],
                   }),
                   Columns.inventoryColumn('tags'),
                   Columns.SsgVersion,
@@ -237,31 +146,90 @@ export const ReportDetails = ({ route }) => {
                   Columns.ComplianceScore,
                   Columns.LastScanned,
                 ]}
-                showOnlySystemsWithTestResults
                 compliantFilter
-                defaultFilter={`with_results_for_policy_id = ${profile.id}`}
+                defaultFilter={`policy_id = ${profile.id}`}
                 policyId={profile.id}
+                tableProps={{
+                  rowWrapper: ReportedSystemRow,
+                }}
+                ruleSeverityFilter
+                showGroupsFilter
+                apiV2Enabled={false} //TODO: change to useAPIV2FeatureFlag when migrating to REST
               />
             </GridItem>
           </Grid>
-        </Main>
+        </section>
       </StateViewPart>
     </StateViewWithError>
   );
 };
 
-ReportDetails.propTypes = {
+ReportDetailsBase.propTypes = {
   route: propTypes.object,
+  data: propTypes.object,
+  error: propTypes.object,
+  loading: propTypes.bool,
+  ssgVersions: propTypes.array,
 };
 
-const ReportDetailsFeatureWrapper = (props) => {
-  const systemsNotReporting = useFeature('systemsNotReporting');
+//deprecated component
+const ReportDetailsGraphQL = ({ route }) => {
+  const { report_id: policyId } = useParams();
+  const { data, error, loading } = useQuery(QUERY, {
+    variables: { policyId },
+    fetchPolicy: 'no-cache',
+  });
 
-  return systemsNotReporting ? (
-    <ReportDetailsWithNotReportedSystems {...props} />
-  ) : (
-    <ReportDetails {...props} />
+  const ssgVersions = data
+    ? [
+        ...new Set(
+          data.profile.policy.profiles.flatMap(
+            ({ benchmark: { version } }) => version
+          )
+        ),
+      ]
+    : [];
+
+  return (
+    <ReportDetailsBase
+      {...{ route, data: data?.profile, error, loading, ssgVersions }}
+    />
   );
 };
 
-export default ReportDetailsFeatureWrapper;
+ReportDetailsGraphQL.propTypes = {
+  route: propTypes.shape({
+    title: propTypes.string.isRequired,
+    defaultTitle: propTypes.string.isRequired,
+  }).isRequired,
+};
+
+const ReportDetailsRest = ({ route }) => {
+  const { report_id: policyId } = useParams();
+  const { data: { data } = {}, error, loading } = useReport(policyId);
+
+  return (
+    <ReportDetailsBase
+      {...{ route, data: dataSerialiser(data, dataMap), error, loading }}
+    />
+  );
+};
+
+ReportDetailsRest.propTypes = {
+  route: propTypes.shape({
+    title: propTypes.string.isRequired,
+    defaultTitle: propTypes.string.isRequired,
+  }).isRequired,
+};
+
+const ReportsWrapper = (props) => {
+  const isRestApiEnabled = useAPIV2FeatureFlag();
+
+  return isRestApiEnabled ? (
+    <ReportDetailsRest {...props} />
+  ) : (
+    <ReportDetailsGraphQL {...props} />
+  );
+};
+
+export default ReportsWrapper;

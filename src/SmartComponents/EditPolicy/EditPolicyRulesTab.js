@@ -4,11 +4,11 @@ import {
   EmptyStateBody,
   Text,
   TextContent,
-  Title,
+  EmptyStateHeader,
+  EmptyStateFooter,
 } from '@patternfly/react-core';
 import propTypes from 'prop-types';
 import { useQuery } from '@apollo/client';
-import EmptyTable from '@redhat-cloud-services/frontend-components/EmptyTable';
 import Spinner from '@redhat-cloud-services/frontend-components/Spinner';
 import { StateViewWithError, StateViewPart } from 'PresentationalComponents';
 import {
@@ -33,16 +33,19 @@ const getBenchmarkProfile = (benchmark, profileRefId) =>
 
 const EditPolicyRulesTabEmptyState = () => (
   <EmptyState>
-    <Title headingLevel="h5" size="lg">
-      No rules can be configured
-    </Title>
+    <EmptyStateHeader
+      titleText="No rules can be configured"
+      headingLevel="h5"
+    />
     <EmptyStateBody>
       This policy has no associated systems, and therefore no rules can be
       configured.
     </EmptyStateBody>
-    <EmptyStateBody>
-      Add at least one system to configure rules for this policy.
-    </EmptyStateBody>
+    <EmptyStateFooter>
+      <EmptyStateBody>
+        Add at least one system to configure rules for this policy.
+      </EmptyStateBody>
+    </EmptyStateFooter>
   </EmptyState>
 );
 
@@ -93,6 +96,8 @@ export const EditPolicyRulesTab = ({
   selectedRuleRefIds,
   setSelectedRuleRefIds,
   osMinorVersionCounts,
+  setRuleValues,
+  ruleValues: ruleValuesProp,
 }) => {
   const osMajorVersion = policy?.osMajorVersion;
   const osMinorVersions = Object.keys(osMinorVersionCounts).sort();
@@ -135,6 +140,24 @@ export const EditPolicyRulesTab = ({
     }
   }, [policy.policy.profiles]);
 
+  const ruleValues = (policy) => {
+    const mergeValues = (policyId, values) => {
+      return {
+        ...values,
+        ...(ruleValuesProp?.[policyId] || {}),
+      };
+    };
+
+    return Object.fromEntries(
+      policy?.policy?.profiles?.map(
+        ({ id, values, benchmark: { valueDefinitions } }) => [
+          id,
+          mergeValues(id, values, valueDefinitions),
+        ]
+      ) || []
+    );
+  };
+
   return (
     <StateViewWithError
       stateValues={{
@@ -145,9 +168,9 @@ export const EditPolicyRulesTab = ({
       }}
     >
       <StateViewPart stateKey="loading">
-        <EmptyTable>
+        <EmptyState>
           <Spinner />
-        </EmptyTable>
+        </EmptyState>
       </StateViewPart>
       <StateViewPart stateKey="data">
         <TextContent>
@@ -157,16 +180,22 @@ export const EditPolicyRulesTab = ({
             must be customized independently.
           </Text>
         </TextContent>
-        <TabbedRules
-          columns={[Columns.Name, Columns.Severity, Columns.Remediation]}
-          tabsData={tabsData}
-          selectedRuleRefIds={selectedRuleRefIds}
-          setSelectedRuleRefIds={setSelectedRuleRefIds}
-          remediationsEnabled={false}
-          selectedFilter
-          level={1}
-          ouiaId="RHELVersions"
-        />
+        {tabsData.length > 0 && (
+          <TabbedRules
+            resetLink
+            rulesPageLink
+            selectedFilter
+            remediationsEnabled={false}
+            columns={[Columns.Name, Columns.Severity, Columns.Remediation]}
+            tabsData={tabsData}
+            ruleValues={ruleValues(policy)}
+            selectedRuleRefIds={selectedRuleRefIds}
+            setSelectedRuleRefIds={setSelectedRuleRefIds}
+            setRuleValues={setRuleValues}
+            level={1}
+            ouiaId="RHELVersions"
+          />
+        )}
       </StateViewPart>
       <StateViewPart stateKey="empty">
         <EditPolicyRulesTabEmptyState />
@@ -186,6 +215,8 @@ EditPolicyRulesTab.propTypes = {
   }),
   selectedRuleRefIds: propTypes.array,
   setSelectedRuleRefIds: propTypes.func,
+  setRuleValues: propTypes.func,
+  ruleValues: propTypes.array,
 };
 
 export default EditPolicyRulesTab;

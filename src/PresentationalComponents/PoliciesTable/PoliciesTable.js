@@ -1,29 +1,15 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import { COMPLIANCE_TABLE_DEFAULTS } from '@/constants';
-import { BackgroundLink, LinkButton } from 'PresentationalComponents';
 import { TableToolsTable } from 'Utilities/hooks/useTableTools';
-import useFeature from 'Utilities/hooks/useFeature';
 import columns, { exportableColumns } from './Columns';
 import * as Filters from './Filters';
 import { emptyRows } from '../../Utilities/hooks/useTableTools/Components/NoResultsTable';
 import useActionResolver from './hooks/useActionResolvers';
 
-const DedicatedAction = () => (
-  <BackgroundLink
-    to="/scappolicies/new"
-    component={LinkButton}
-    variant="primary"
-    ouiaId="CreateNewPolicyButton"
-  >
-    Create new policy
-  </BackgroundLink>
-);
-
-export const PoliciesTable = ({ policies }) => {
-  const manageColumnsEnabled = useFeature('manageColumns');
+export const PoliciesTable = ({ policies, DedicatedAction }) => {
   const filters = Object.values(Filters);
-  const actionResolver = useActionResolver(policies);
+  const actionResolver = useActionResolver();
 
   return (
     <TableToolsTable
@@ -39,12 +25,11 @@ export const PoliciesTable = ({ policies }) => {
       options={{
         ...COMPLIANCE_TABLE_DEFAULTS,
         actionResolver,
-        dedicatedAction: DedicatedAction,
+        ...(DedicatedAction ? { dedicatedAction: DedicatedAction } : {}),
         exportable: {
           ...COMPLIANCE_TABLE_DEFAULTS.exportable,
           columns: exportableColumns,
         },
-        manageColumns: manageColumnsEnabled,
         emptyRows: emptyRows('policies', columns.length),
       }}
     />
@@ -53,6 +38,7 @@ export const PoliciesTable = ({ policies }) => {
 
 PoliciesTable.propTypes = {
   policies: propTypes.array.isRequired,
+  DedicatedAction: propTypes.oneOfType([propTypes.node, propTypes.func]),
 };
 
 PoliciesTable.defaultProps = {
