@@ -1,18 +1,21 @@
-import { init } from 'Store';
-import { useQuery, useMutation } from '@apollo/client';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import TestWrapper from '@/Utilities/TestWrapper';
+import ReportDetails from './ReportDetails';
+import useAPIV2FeatureFlag from '@/Utilities/hooks/useAPIV2FeatureFlag.js';
+import { useReport } from '@/Utilities/hooks/api/useReport';
+import { QUERY } from './constants';
+import { buildReport, buildReportV2 } from '../../__factories__/report';
 
-import { QUERY, ReportDetails } from './ReportDetails';
-
+jest.mock('@/Utilities/hooks/api/useReport');
+jest.mock('@/Utilities/hooks/useAPIV2FeatureFlag');
 jest.mock('Utilities/hooks/useDocumentTitle', () => ({
   useTitleEntity: () => ({}),
   setTitle: () => ({}),
 }));
 
-jest.mock('react-redux', () => ({
-  ...jest.requireActual('react-redux'),
-  useDispatch: jest.fn(() => ({})),
-}));
-
+const reportFromGraphQL = buildReport(1);
+const reportFromREST = buildReportV2();
 const mocks = [
   {
     request: {
@@ -22,73 +25,70 @@ const mocks = [
       },
     },
     result: {
-      data: {
-        profile: {
-          id: '1',
-          refId: '121212',
-          name: 'profile1',
-          policyType: 'policy type',
-          description: 'profile description',
-          external: false,
-          testResultHostCount: 10,
-          complianceThreshold: 1,
-          compliantHostCount: 5,
-          unsupportedHostCount: 5,
-          osMajorVersion: '7',
-          policy: {
-            id: 'thepolicyid',
-            name: 'the policy name',
-          },
-          businessObjective: {
-            id: '1',
-            title: 'BO 1',
-          },
-          benchmark: {
-            version: '0.1.4',
-          },
-        },
-      },
+      data: reportFromGraphQL,
     },
   },
 ];
-const store = init().getStore();
 
-// Currently there seems to be an issue in react-apollo, which causes it not to recognize a MockProvider
-// This is a hack and should eventually be replaced by using a MockProvider provided by react-apollo's test utilities
-jest.mock('@apollo/client');
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-    useParams: jest.fn().mockReturnValue({ policy_id: '1' }), // eslint-disable-line
+    useParams: jest.fn().mockReturnValue({ report_id: '1234' }), // eslint-disable-line
 }));
+
+beforeEach(() => {
+  useAPIV2FeatureFlag.mockImplementation(() => false);
+});
 
 describe('ReportDetails', () => {
   const defaultProps = {
-    match: {
-      params: {
-        policyId: '123',
-      },
+    route: {
+      defaultTitle: 'Title',
     },
   };
 
-  beforeEach(() => {
-    useMutation.mockImplementation(() => [() => {}]);
-    useQuery.mockImplementation(() => ({ data: mocks[0].result.data }));
-    window.insights = {
-      chrome: { isBeta: jest.fn(() => true) },
-    };
-  });
-
-  it('expect to render without error', () => {
-    const component = shallow(<ReportDetails {...defaultProps} />);
-
-    expect(toJson(component)).toMatchSnapshot();
-  });
-
-  it('expect to render without error and ssg Version', () => {
-    const component = shallow(
-      <ReportDetails {...defaultProps} store={store} />
+  it('expect to render a report properly', async () => {
+    render(
+      <TestWrapper mocks={mocks}>
+        <ReportDetails {...defaultProps} />
+      </TestWrapper>
     );
 
-    expect(toJson(component)).toMatchSnapshot();
+    expect(screen.getAllByText('Loading...')[0]).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', {
+        name: `Report: ${reportFromGraphQL.profile.policy.name}`,
+      })
+    ).toBeInTheDocument();
+  });
+});
+
+describe('Report Details - REST', () => {
+  beforeEach(() => {
+    useAPIV2FeatureFlag.mockImplementation(() => true);
+  });
+
+  it('should use REST api', async () => {
+    useReport.mockImplementation(() => ({
+      data: {
+        data: reportFromREST,
+      },
+      loading: false,
+      error: null,
+      refetch: () => {},
+    }));
+
+    render(
+      <TestWrapper>
+        <ReportDetails />
+      </TestWrapper>
+    );
+
+    expect(useReport).toHaveBeenCalledWith('1234');
+
+    expect(
+      await screen.findByRole('heading', {
+        name: `Report: ${reportFromREST.title}`,
+      })
+    ).toBeInTheDocument();
   });
 });

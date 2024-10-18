@@ -1,7 +1,6 @@
 import React from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery, gql } from '@apollo/client';
 import { useParams } from 'react-router-dom';
-import gql from 'graphql-tag';
 import propTypes from 'prop-types';
 import PageHeader, {
   PageHeaderTitle,
@@ -11,7 +10,7 @@ import * as Columns from '@/PresentationalComponents/RulesTable/Columns';
 import { Spinner, Text, TextContent } from '@patternfly/react-core';
 
 const PROFILES_QUERY = gql`
-  query Profile($policyId: String!) {
+  query PR_Profile($policyId: String!) {
     profile(id: $policyId) {
       id
       name
@@ -20,6 +19,7 @@ const PROFILES_QUERY = gql`
       osMajorVersion
       benchmark {
         version
+        ruleTree
       }
       rules {
         id
@@ -50,11 +50,11 @@ const PolicyRules = () => {
     </PageHeader>
   ) : (
     <React.Fragment>
-      <PageHeader className="pf-u-pt-xl pf-u-pl-xl">
+      <PageHeader className="pf-v5-u-pt-xl pf-v5-u-pl-xl">
         <PageHeaderTitle
           title={`Compliance | Default rules for ${data?.profile.name} policy`}
         />
-        <TextContent className="pf-u-mb-md pf-u-mt-md">
+        <TextContent className="pf-v5-u-mb-md pf-v5-u-mt-md">
           <Text>
             This is a read-only view of the full set of rules and their
             description for
@@ -67,17 +67,14 @@ const PolicyRules = () => {
         </TextContent>
       </PageHeader>
       {data && (
-        <div className="pf-u-p-xl" style={{ background: '#fff' }}>
+        <div className="pf-v5-u-p-xl" style={{ background: '#fff' }}>
           <RulesTable
             remediationsEnabled={false}
             columns={[Columns.Name, Columns.Severity, Columns.Remediation]}
             loading={loading}
             profileRules={[
               {
-                profile: {
-                  refId: data.profile.refId,
-                  name: data.profile.name,
-                },
+                profile: data.profile,
                 rules: data.profile.rules,
               },
             ]}
