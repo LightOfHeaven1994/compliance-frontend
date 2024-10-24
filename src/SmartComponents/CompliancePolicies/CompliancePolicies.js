@@ -1,15 +1,13 @@
 import React, { useEffect } from 'react';
-import gql from 'graphql-tag';
 import { useLocation } from 'react-router-dom';
 import { useQuery } from '@apollo/client';
 import { Grid } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
 import ComplianceEmptyState from 'PresentationalComponents/ComplianceEmptyState';
 import {
-  BackgroundLink,
+  LinkWithPermission as Link,
   ErrorPage,
   LoadingPoliciesTable,
   PoliciesTable,
@@ -17,47 +15,28 @@ import {
   StateViewPart,
   LinkButton,
 } from 'PresentationalComponents';
+import { usePoliciesQuery } from '../../Utilities/hooks/usePoliciesQuery/usePoliciesQuery';
+import PropTypes from 'prop-types';
+import dataSerialiser from '../../Utilities/dataSerialiser';
+import { QUERY, dataMap } from './constants';
+import GatedComponents from '@/PresentationalComponents/GatedComponents';
 
-const QUERY = gql`
-  {
-    profiles(search: "external = false and canonical = false") {
-      edges {
-        node {
-          id
-          name
-          description
-          refId
-          complianceThreshold
-          totalHostCount
-          osMajorVersion
-          policyType
-          policy {
-            id
-            name
-          }
-          businessObjective {
-            id
-            title
-          }
-        }
-      }
-    }
-  }
-`;
-
-export const CompliancePolicies = () => {
+export const CompliancePoliciesBase = ({ query }) => {
   const location = useLocation();
-  const createLink = (
-    <BackgroundLink
+  const CreateLink = () => (
+    <Link
       to="/scappolicies/new"
-      component={LinkButton}
-      variant="primary"
-      ouiaId="CreateNewPolicyButton"
+      Component={LinkButton}
+      componentProps={{
+        variant: 'primary',
+        ouiaId: 'CreateNewPolicyButton',
+      }}
     >
       Create new policy
-    </BackgroundLink>
+    </Link>
   );
-  let { data, error, loading, refetch } = useQuery(QUERY);
+
+  let { data, error, loading, refetch } = query;
   useEffect(() => {
     refetch();
   }, [location, refetch]);
@@ -74,7 +53,7 @@ export const CompliancePolicies = () => {
       <PageHeader className="page-header">
         <PageHeaderTitle title="SCAP policies" />
       </PageHeader>
-      <Main>
+      <section className="pf-v5-c-page__main-section">
         <StateView stateValues={{ error, data, loading }}>
           <StateViewPart stateKey="error">
             <ErrorPage error={error} />
@@ -87,17 +66,54 @@ export const CompliancePolicies = () => {
               <Grid hasGutter>
                 <ComplianceEmptyState
                   title="No policies"
-                  mainButton={createLink}
+                  mainButton={<CreateLink />}
                 />
               </Grid>
             ) : (
-              <PoliciesTable policies={policies} />
+              <PoliciesTable policies={policies} DedicatedAction={CreateLink} />
             )}
           </StateViewPart>
         </StateView>
-      </Main>
+      </section>
     </React.Fragment>
   );
 };
 
-export default CompliancePolicies;
+CompliancePoliciesBase.propTypes = {
+  query: PropTypes.shape({
+    data: PropTypes.object,
+    error: PropTypes.string,
+    loading: PropTypes.bool,
+    refetch: PropTypes.func,
+  }),
+};
+
+const CompliancePoliciesV2 = () => {
+  const query = usePoliciesQuery();
+
+  const data = query.data?.data
+    ? {
+        profiles: {
+          edges: query.data.data.map((policy) => ({
+            node: dataSerialiser(policy, dataMap),
+          })),
+        },
+      }
+    : null;
+
+  return <CompliancePoliciesBase query={{ ...query, data }} />;
+};
+
+const CompliancePoliciesGraphQL = () => {
+  const query = useQuery(QUERY);
+  return <CompliancePoliciesBase query={query} />;
+};
+
+const CompliancePoliciesWrapper = () => (
+  <GatedComponents
+    RestComponent={CompliancePoliciesV2}
+    GraphQLComponent={CompliancePoliciesGraphQL}
+  />
+);
+
+export default CompliancePoliciesWrapper;
