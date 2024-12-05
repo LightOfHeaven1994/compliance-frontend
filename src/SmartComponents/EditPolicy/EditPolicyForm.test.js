@@ -1,49 +1,16 @@
-import propTypes from 'prop-types';
 import { render } from '@testing-library/react';
-import { MockedProvider } from '@apollo/client/testing';
-import { BENCHMARKS_QUERY } from './constants';
-
+import TestWrapper from '@/Utilities/TestWrapper';
 import { policies } from '@/__fixtures__/policies.js';
-
-import { createMemoryHistory } from 'history';
-import { Router } from 'react-router-dom';
-
-import { Provider } from 'react-redux';
-import { createStore } from 'redux';
+import { BENCHMARKS_QUERY } from './constants';
 
 import EditPolicyForm from './EditPolicyForm';
 import { useNewRulesAlertState } from './hooks';
 
+jest.mock('@/Utilities/hooks/useAPIV2FeatureFlag', () => jest.fn(() => false));
 jest.mock('./hooks', () => ({
   ...jest.requireActual('./hooks'),
   useNewRulesAlertState: jest.fn(() => [false, () => false]),
 }));
-
-const initialState = {};
-const reducer = (state = initialState, action) => {
-  switch (action.type) {
-    default:
-      return state;
-  }
-};
-
-const TestWrapper = ({ children, mocks = [] }) => {
-  const history = createMemoryHistory();
-  const store = createStore(reducer, initialState);
-
-  return (
-    <Provider store={store}>
-      <Router history={history}>
-        <MockedProvider mocks={mocks}>{children}</MockedProvider>
-      </Router>
-    </Provider>
-  );
-};
-
-TestWrapper.propTypes = {
-  children: propTypes.node,
-  mocks: propTypes.arra,
-};
 
 describe('EditPolicyForm', () => {
   const policy = {

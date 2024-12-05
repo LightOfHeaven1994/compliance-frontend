@@ -2,28 +2,34 @@ import React from 'react';
 import propTypes from 'prop-types';
 import { CloudSecurityIcon } from '@patternfly/react-icons';
 import {
-  Title,
   Bullseye,
   EmptyState,
   EmptyStateBody,
   EmptyStateIcon,
+  EmptyStateHeader,
 } from '@patternfly/react-core';
 
 const NoReportsState = ({ system }) => (
   <Bullseye>
-    <EmptyState>
-      <EmptyStateIcon
-        icon={CloudSecurityIcon}
-        title="Compliance"
-        size="xl"
-        style={{
-          fontWeight: '500',
-          color: 'var(--pf-global--primary-color--100)',
-        }}
+    <EmptyState
+      style={{
+        '--pf-v5-c-empty-state__icon--FontSize':
+          'var(--pf-v5-c-empty-state--m-xl__icon--FontSize)',
+      }}
+    >
+      <EmptyStateHeader
+        titleText="No results reported"
+        icon={
+          <EmptyStateIcon
+            icon={CloudSecurityIcon}
+            style={{
+              fontWeight: '500',
+              color: 'var(--pf-v5-global--primary-color--100)',
+            }}
+          />
+        }
+        headingLevel="h1"
       />
-      <Title headingLevel="h1" size="lg">
-        No results reported
-      </Title>
       <EmptyStateBody>
         This system is part of {system?.policies?.length}
         {system?.policies?.length > 1 ? ' policies' : ' policy'}, but has not

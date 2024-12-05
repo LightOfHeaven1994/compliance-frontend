@@ -10,6 +10,7 @@ import {
 export const Name = {
   title: 'Policy',
   sortByProp: 'name',
+  sortable: 'title',
   props: {
     width: 60,
   },
@@ -21,6 +22,7 @@ export const OperatingSystem = {
   title: 'Operating system',
   transforms: [fitContent],
   sortByProp: 'osMajorVersion',
+  sortable: 'os_major_version',
   props: {
     width: 20,
   },
@@ -31,6 +33,7 @@ export const OperatingSystem = {
 export const CompliantSystems = {
   title: 'Systems meeting compliance',
   transforms: [fitContent],
+  sortable: 'percent_compliant',
   sortByFunction: ({ testResultHostCount, compliantHostCount }) =>
     (100 / testResultHostCount) * compliantHostCount,
   props: {
@@ -50,7 +53,7 @@ export const CompliantSystems = {
 export const PDFExportDownload = {
   title: '',
   renderFunc: renderComponent(PDFExportDownloadCell),
-  managable: false,
+  manageable: false,
 };
 
 const PolicyType = {
