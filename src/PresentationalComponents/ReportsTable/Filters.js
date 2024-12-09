@@ -4,6 +4,7 @@ export const policyNameFilter = [
   {
     type: conditionalFilterType.text,
     label: 'Policy name',
+    filterAttribute: 'title',
     filter: (profiles, value) => {
       const lowerCaseValue = value.toLowerCase();
       return profiles.filter((profile) =>
@@ -20,6 +21,8 @@ export const policyTypeFilter = (policyTypes) => [
   {
     type: conditionalFilterType.checkbox,
     label: 'Policy type',
+    // TODO profile_title needs to be added as scoped_search attribute for REST API
+    // filterAttribute: 'profile_title',
     filter: (profiles, values) =>
       profiles.filter(({ policyType }) => values.includes(policyType)),
     items: policyTypes.map((policyType) => ({
@@ -33,11 +36,12 @@ export const operatingSystemFilter = (operatingSystems) => [
   {
     type: conditionalFilterType.checkbox,
     label: 'Operating system',
+    filterAttribute: 'os_major_version',
     filter: (profiles, values) =>
       profiles.filter(({ osMajorVersion }) => values.includes(osMajorVersion)),
     items: operatingSystems.map((operatingSystem) => ({
       label: `RHEL ${operatingSystem}`,
-      value: operatingSystem,
+      value: `${operatingSystem}`,
     })),
   },
 ];
@@ -46,6 +50,14 @@ export const policyComplianceFilter = [
   {
     type: conditionalFilterType.checkbox,
     label: 'Systems meeting compliance',
+    filterAttribute: 'percent_compliant',
+    filterSerialiser: (_, values) =>
+      `(${values
+        .map((value) => {
+          const scoreRange = value.split('-');
+          return `(percent_compliant >= ${scoreRange[0]} AND percent_compliant <= ${scoreRange[1]})`;
+        })
+        .join(' OR ')})`,
     filter: (profiles, values) =>
       profiles.filter(({ testResultHostCount, compliantHostCount }) => {
         const compliantHostsPercent = Math.round(

@@ -1,7 +1,6 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import { TextContent } from '@patternfly/react-core';
-import { fitContent } from '@patternfly/react-table';
 import { LinkWithPermission as Link } from 'PresentationalComponents';
 import { GreySmallText, SystemsCountWarning } from 'PresentationalComponents';
 import { renderComponent } from 'Utilities/helpers';
@@ -22,11 +21,20 @@ PolicyNameCell.propTypes = {
 export const Name = {
   title: 'Name',
   props: {
-    width: 45,
+    width: 25,
   },
   sortByProp: 'name',
+  sortable: 'title',
   renderExport: (policy) => policy.name,
   renderFunc: renderComponent(PolicyNameCell),
+};
+
+export const Description = {
+  title: 'Description',
+  sortByProp: 'description',
+  renderExport: (policy) => policy.description,
+  hiddenByDefault: true,
+  isShown: false,
 };
 
 const PolicyType = {
@@ -38,21 +46,16 @@ const osString = (policy) => `RHEL ${policy.osMajorVersion}`;
 
 export const OperatingSystem = {
   title: 'Operating system',
-  transforms: [fitContent],
-  props: {
-    width: 15,
-  },
   sortByProp: 'osMajorVersion',
+  sortable: 'os_major_version',
   renderExport: osString,
   renderFunc: (_data, _id, policy) => osString(policy),
 };
 
 export const Systems = {
   title: 'Systems',
-  props: {
-    width: 15,
-  },
   sortByProp: 'totalHostCount',
+  sortable: 'total_system_count',
   renderExport: (policy) => policy.totalHostCount,
   // eslint-disable-next-line react/display-name
   renderFunc: (_data, _id, policy) =>
@@ -68,7 +71,8 @@ const businessObjectiveString = (policy) =>
 
 export const BusinessObjective = {
   title: 'Business objective',
-  sortByFunction: (policy) => policy?.businessObjective?.title,
+  sortByFunction: (policy) => policy?.businessObjective?.title ?? '',
+  sortable: 'business_objective',
   renderExport: businessObjectiveString,
   renderFunc: (_data, _id, policy) => businessObjectiveString(policy),
 };
@@ -78,6 +82,7 @@ const complianceThresholdString = (policy) => `${policy.complianceThreshold}%`;
 export const ComplianceThreshold = {
   title: 'Compliance threshold',
   sortByProp: 'complianceThreshold',
+  sortable: 'compliance_threshold',
   renderExport: complianceThresholdString,
   renderFunc: (_data, _id, policy) => complianceThresholdString(policy),
 };
@@ -89,6 +94,7 @@ export const exportableColumns = [
   Systems,
   BusinessObjective,
   ComplianceThreshold,
+  Description,
 ];
 
 export default [
@@ -97,4 +103,5 @@ export default [
   Systems,
   BusinessObjective,
   ComplianceThreshold,
+  Description,
 ];
