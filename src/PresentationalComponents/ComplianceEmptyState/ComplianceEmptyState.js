@@ -1,22 +1,24 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import { ApolloClient, HttpLink, InMemoryCache } from 'apollo-boost';
+import { ApolloClient, HttpLink, InMemoryCache, gql } from '@apollo/client';
+import InsightsLink from '@redhat-cloud-services/frontend-components/InsightsLink';
 import {
-  Title,
   TextContent,
   Button,
   EmptyState,
   EmptyStateBody,
-  EmptyStatePrimary,
-  EmptyStateSecondaryActions,
   EmptyStateIcon,
+  EmptyStateActions,
+  EmptyStateHeader,
+  EmptyStateFooter,
 } from '@patternfly/react-core';
 import { CloudSecurityIcon } from '@patternfly/react-icons';
-import gql from 'graphql-tag';
 import { useQuery } from '@apollo/client';
 import { Spinner } from '@redhat-cloud-services/frontend-components/Spinner';
 import { ErrorCard } from 'PresentationalComponents';
 const COMPLIANCE_API_ROOT = '/api/compliance';
+import useAPIV2FeatureFlag from '@/Utilities/hooks/useAPIV2FeatureFlag';
+import usePolicies from 'Utilities/hooks/api/usePolicies';
 
 const QUERY = gql`
   {
@@ -26,12 +28,13 @@ const QUERY = gql`
   }
 `;
 
-const ComplianceEmptyState = ({ title, mainButton, client }) => {
-  const { data, error, loading } = useQuery(QUERY, {
-    fetchPolicy: 'network-only',
-    client,
-  });
-
+const ComplianceEmptyStateBase = ({
+  title,
+  mainButton,
+  policiesCount,
+  loading,
+  error,
+}) => {
   if (loading) {
     return <Spinner />;
   }
@@ -41,31 +44,35 @@ const ComplianceEmptyState = ({ title, mainButton, client }) => {
     return <ErrorCard errorMsg={errorMsg} />;
   }
 
-  const policiesCount = data.profiles.totalCount;
-
   const policyWord = policiesCount > 1 ? 'policies' : 'policy';
   const haveWord = policiesCount > 1 ? 'have' : 'has';
 
   return (
-    <EmptyState>
-      <EmptyStateIcon
-        style={{
-          fontWeight: '500',
-          color: 'var(--pf-global--primary-color--100)',
-        }}
-        size="xl"
-        title="Compliance"
-        icon={CloudSecurityIcon}
+    <EmptyState
+      style={{
+        '--pf-v5-c-empty-state__icon--FontSize':
+          'var(--pf-v5-c-empty-state--m-xl__icon--FontSize)',
+      }}
+    >
+      <EmptyStateHeader
+        titleText={<>{title}</>}
+        icon={
+          <EmptyStateIcon
+            style={{
+              fontWeight: '500',
+              color: 'var(--pf-v5-global--primary-color--100)',
+            }}
+            icon={CloudSecurityIcon}
+          />
+        }
+        headingLevel="h2"
       />
-      <Title headingLevel="h2" size="lg">
-        {title}
-      </Title>
       <EmptyStateBody>
         {policiesCount > 0 ? (
           <TextContent>
-            <a href="insights/compliance/scappolicies">
+            <InsightsLink to="/scappolicies">
               {policiesCount} {policyWord}
-            </a>{' '}
+            </InsightsLink>{' '}
             {haveWord} been created but {haveWord} no reports.
           </TextContent>
         ) : (
@@ -80,32 +87,36 @@ const ComplianceEmptyState = ({ title, mainButton, client }) => {
           connect OpenSCAP to the Compliance service.
         </TextContent>
       </EmptyStateBody>
-      <EmptyStatePrimary>{mainButton}</EmptyStatePrimary>
-      <EmptyStateSecondaryActions>
-        <Button
-          variant="link"
-          component="a"
-          target="_blank"
-          rel="noopener noreferrer"
-          href={
-            `https://access.redhat.com/documentation/en-us/red_hat_insights/` +
-            `2022/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/index`
-          }
-        >
-          Learn about OpenSCAP and Compliance
-        </Button>
-      </EmptyStateSecondaryActions>
+      <EmptyStateFooter>
+        <EmptyStateActions>{mainButton}</EmptyStateActions>
+        <EmptyStateActions>
+          <Button
+            variant="link"
+            component="a"
+            target="_blank"
+            rel="noopener noreferrer"
+            href={
+              `https://access.redhat.com/documentation/en-us/red_hat_insights/` +
+              `1-latest/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/index`
+            }
+          >
+            Learn about OpenSCAP and Compliance
+          </Button>
+        </EmptyStateActions>
+      </EmptyStateFooter>
     </EmptyState>
   );
 };
 
-ComplianceEmptyState.propTypes = {
+ComplianceEmptyStateBase.propTypes = {
   title: propTypes.string,
   mainButton: propTypes.object,
-  client: propTypes.object,
+  policiesCount: propTypes.number,
+  error: propTypes.object,
+  loading: propTypes.bool,
 };
 
-ComplianceEmptyState.defaultProps = {
+ComplianceEmptyStateBase.defaultProps = {
   title: 'No policies',
   mainButton: (
     <Button
@@ -116,6 +127,33 @@ ComplianceEmptyState.defaultProps = {
       Create new policy
     </Button>
   ),
+};
+
+const EmptyStateGraphQL = ({ title, mainButton, client }) => {
+  const { data, error, loading } = useQuery(QUERY, {
+    fetchPolicy: 'network-only',
+    client,
+  });
+  const policiesCount = data?.profiles?.totalCount || 0;
+
+  return (
+    <ComplianceEmptyStateBase
+      title={title}
+      mainButton={mainButton}
+      policiesCount={policiesCount}
+      loading={loading}
+      error={error}
+    />
+  );
+};
+
+EmptyStateGraphQL.propTypes = {
+  title: propTypes.string,
+  mainButton: propTypes.object,
+  client: propTypes.object,
+};
+
+EmptyStateGraphQL.defaultProps = {
   client: new ApolloClient({
     link: new HttpLink({
       uri: COMPLIANCE_API_ROOT + '/graphql',
@@ -125,4 +163,34 @@ ComplianceEmptyState.defaultProps = {
   }),
 };
 
-export default ComplianceEmptyState;
+const EmptyStateRest = ({ title, mainButton }) => {
+  const { data, error, loading } = usePolicies({ params: { limit: 1 } });
+  const policiesCount = data?.meta?.total || 0;
+
+  return (
+    <ComplianceEmptyStateBase
+      title={title}
+      mainButton={mainButton}
+      policiesCount={policiesCount}
+      loading={loading}
+      error={error}
+    />
+  );
+};
+
+EmptyStateRest.propTypes = {
+  title: propTypes.string,
+  mainButton: propTypes.object,
+};
+
+const ComplianceEmptyStateWrapper = (props) => {
+  const isRestApiEnabled = useAPIV2FeatureFlag();
+
+  return isRestApiEnabled ? (
+    <EmptyStateRest {...props} />
+  ) : (
+    <EmptyStateGraphQL {...props} />
+  );
+};
+
+export default ComplianceEmptyStateWrapper;
