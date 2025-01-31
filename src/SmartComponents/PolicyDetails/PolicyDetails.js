@@ -1,19 +1,18 @@
-import React, { Fragment, useEffect } from 'react';
-import propTypes from 'prop-types';
-import gql from 'graphql-tag';
-import { useParams, useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import React, { Fragment } from 'react';
+import PropTypes from 'prop-types';
+import { useParams } from 'react-router-dom';
 import {
   Breadcrumb,
   BreadcrumbItem,
   Grid,
   GridItem,
   Tab,
+  PageSection,
+  PageSectionVariants,
 } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
 import Spinner from '@redhat-cloud-services/frontend-components/Spinner';
 import {
   PolicyDetailsDescription,
@@ -24,103 +23,46 @@ import {
   StateViewPart,
   RoutedTabs,
   BreadcrumbLinkItem,
+  Tailorings,
 } from 'PresentationalComponents';
 import { useTitleEntity } from 'Utilities/hooks/useDocumentTitle';
 import '@/Charts.scss';
-import PolicyRulesTab from './PolicyRulesTab';
 import PolicySystemsTab from './PolicySystemsTab';
-import PolicyMultiversionRules from './PolicyMultiversionRules';
 import './PolicyDetails.scss';
+import useSaveValueOverrides from './hooks/useSaveValueOverrides';
+import usePolicy from 'Utilities/hooks/api/usePolicy';
+import dataSerialiser from 'Utilities/dataSerialiser';
+import * as Columns from '@/PresentationalComponents/RulesTable/Columns';
+import EditRulesButtonToolbarItem from './EditRulesButtonToolbarItem';
+import usePolicyOsVersionCounts from '../../Utilities/hooks/api/usePolicyOsVersionCounts';
 
-export const QUERY = gql`
-  query Profile($policyId: String!) {
-    profile(id: $policyId) {
-      id
-      name
-      refId
-      external
-      description
-      totalHostCount
-      compliantHostCount
-      complianceThreshold
-      osMajorVersion
-      lastScanned
-      policyType
-      policy {
-        id
-        name
-        refId
-        profiles {
-          id
-          name
-          refId
-          osMinorVersion
-          osMajorVersion
-          benchmark {
-            id
-            title
-            latestSupportedOsMinorVersions
-            osMajorVersion
-            version
-          }
-          rules {
-            title
-            severity
-            rationale
-            refId
-            description
-            remediationAvailable
-            identifier
-            precedence
-          }
-        }
-      }
-      businessObjective {
-        id
-        title
-      }
-      hosts {
-        id
-        osMinorVersion
-      }
-    }
-  }
-`;
-
-export const PolicyDetails = ({ route }) => {
+export const PolicyDetailsBase = ({
+  route,
+  query,
+  saveToPolicy,
+  versionCounts,
+}) => {
   const defaultTab = 'details';
-  const { policy_id: policyId } = useParams();
-  const location = useLocation();
-  let { data, error, loading, refetch } = useQuery(QUERY, {
-    variables: { policyId },
-  });
-  let policy;
-  let hasOsMinorProfiles = true;
-  if (data && !loading) {
-    policy = data.profile;
-    hasOsMinorProfiles = !!policy.policy.profiles.find(
-      (profile) => !!profile.osMinorVersion
-    );
-  }
-
-  useEffect(() => {
-    refetch();
-  }, [location, refetch]);
+  const { data, error, loading, refetch } = query;
+  const policy = data?.profile;
 
   useTitleEntity(route, policy?.name);
+  const DedicatedAction = () => <EditRulesButtonToolbarItem policy={policy} />;
 
   return (
-    <StateViewWithError stateValues={{ error, data, loading }}>
+    <StateViewWithError
+      stateValues={{ error, data: policy && !loading, loading }}
+    >
       <StateViewPart stateKey="loading">
         <PageHeader>
           <PolicyDetailsContentLoader />
         </PageHeader>
-        <Main>
+        <section className="pf-v5-c-page__main-section">
           <Spinner />
-        </Main>
+        </section>
       </StateViewPart>
       <StateViewPart stateKey="data">
-        {policy && (
+        {policy ? (
           <Fragment>
             <PageHeader className="page-header-tabs">
               <Breadcrumb ouiaId="PolicyDetailsPathBreadcrumb">
@@ -145,32 +87,97 @@ export const PolicyDetails = ({ route }) => {
                 <Tab title="Systems" id="policy-systems" eventKey="systems" />
               </RoutedTabs>
             </PageHeader>
-            <Main>
+            <section className="pf-v5-c-page__main-section">
               <TabSwitcher defaultTab={defaultTab}>
                 <ContentTab eventKey="details">
-                  <PolicyDetailsDescription policy={policy} />
+                  <PolicyDetailsDescription policy={policy} refetch={refetch} />
                 </ContentTab>
                 <ContentTab eventKey="rules">
-                  {hasOsMinorProfiles ? (
-                    <PolicyMultiversionRules policy={policy} />
-                  ) : (
-                    <PolicyRulesTab policy={policy} />
-                  )}
+                  <PageSection variant={PageSectionVariants.light}>
+                    <Tailorings
+                      ouiaId="RHELVersions"
+                      columns={[
+                        Columns.Name,
+                        Columns.Severity,
+                        Columns.Remediation,
+                      ]}
+                      policy={policy}
+                      level={1}
+                      DedicatedAction={DedicatedAction}
+                      onValueOverrideSave={saveToPolicy}
+                      selectedVersionCounts={versionCounts}
+                    />
+                  </PageSection>
                 </ContentTab>
                 <ContentTab eventKey="systems">
                   <PolicySystemsTab policy={policy} />
                 </ContentTab>
               </TabSwitcher>
-            </Main>
+            </section>
           </Fragment>
+        ) : (
+          ''
         )}
       </StateViewPart>
     </StateViewWithError>
   );
 };
 
+PolicyDetailsBase.propTypes = {
+  route: PropTypes.object,
+  query: PropTypes.shape({
+    data: PropTypes.oneOf([undefined, PropTypes.object]),
+    error: PropTypes.oneOf([undefined, PropTypes.string]),
+    loading: PropTypes.oneOf([undefined, false, true]),
+    refetch: PropTypes.func,
+  }),
+  saveToPolicy: PropTypes.func,
+  versionCounts: PropTypes.object,
+};
+
+const PolicyDetails = ({ route }) => {
+  const { policy_id: policyId } = useParams();
+  const query = usePolicy(policyId);
+  const versionCounts = usePolicyOsVersionCounts(policyId);
+  const data = query?.data?.data
+    ? {
+        profile: {
+          ...dataSerialiser(query.data.data, dataMap),
+          policy: { profiles: [] },
+        },
+      }
+    : {};
+
+  const saveValueOverrides = useSaveValueOverrides();
+  const saveValue = async (...args) => {
+    await saveValueOverrides(...args);
+    query.refetch?.();
+  };
+
+  return (
+    <PolicyDetailsBase
+      query={{ ...query, data }}
+      route={route}
+      saveToPolicy={saveValue}
+      versionCounts={versionCounts}
+    />
+  );
+};
+
 PolicyDetails.propTypes = {
-  route: propTypes.object,
+  route: PropTypes.object,
 };
 
 export default PolicyDetails;
+
+const dataMap = {
+  id: ['id', 'policy.id'],
+  title: 'name',
+  description: 'description',
+  business_objective: 'businessObjective.title',
+  compliance_threshold: 'complianceThreshold',
+  total_system_count: 'totalHostCount',
+  os_major_version: 'osMajorVersion',
+  profile_title: ['policy.name', 'policyType'],
+  ref_id: 'refId',
+};

@@ -29,6 +29,8 @@ const EditPolicyForm = ({
   setSelectedRuleRefIds,
   selectedSystems,
   setSelectedSystems,
+  setRuleValues,
+  ruleValues,
 }) => {
   const policyProfiles = policy?.policy?.profiles || [];
   const [osMinorVersionCounts, setOsMinorVersionCounts] = useState({});
@@ -73,7 +75,7 @@ const EditPolicyForm = ({
 
   return (
     <Form>
-      <RoutedTabs ouiaId="EditSystems" defaultTab="systems" id="policy-tabs">
+      <RoutedTabs ouiaId="EditSystems" defaultTab="rules" id="policy-tabs">
         <Tab
           eventKey="rules"
           ouiaId="Rules"
@@ -82,6 +84,8 @@ const EditPolicyForm = ({
           <EditPolicyRulesTab
             policy={policy}
             setSelectedRuleRefIds={setSelectedRuleRefIds}
+            setRuleValues={setRuleValues}
+            ruleValues={ruleValues}
             selectedRuleRefIds={selectedRuleRefIds}
             osMinorVersionCounts={osMinorVersionCounts}
           />
@@ -111,6 +115,8 @@ EditPolicyForm.propTypes = {
   setSelectedRuleRefIds: propTypes.func,
   setSelectedSystems: propTypes.func,
   selectedSystems: propTypes.array,
+  setRuleValues: propTypes.func,
+  ruleValues: propTypes.array,
 };
 
 export default EditPolicyForm;

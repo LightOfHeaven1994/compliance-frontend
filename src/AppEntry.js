@@ -1,11 +1,12 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import { IntlProvider } from 'react-intl';
-import { ApolloProvider } from '@apollo/client';
-import { ApolloClient, HttpLink, InMemoryCache } from 'apollo-boost';
-import { BrowserRouter as Router } from 'react-router-dom';
+import {
+  ApolloProvider,
+  ApolloClient,
+  HttpLink,
+  InMemoryCache,
+} from '@apollo/client';
 import { Provider } from 'react-redux';
-import { getBaseName } from '@redhat-cloud-services/frontend-components-utilities/helpers';
 import { init } from 'Store';
 import App from './App';
 
@@ -19,20 +20,16 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-const AppEntry = ({ logger }) => (
-  <Provider store={init(logger).getStore()}>
-    <IntlProvider locale={navigator.language}>
-      <Router basename={getBaseName(window.location.pathname)}>
-        <ApolloProvider client={client}>
-          <App />
-        </ApolloProvider>
-      </Router>
-    </IntlProvider>
+const AppEntry = ({ environment = 'production' }) => (
+  <Provider store={init(environment).getStore()}>
+    <ApolloProvider client={client}>
+      <App />
+    </ApolloProvider>
   </Provider>
 );
 
 AppEntry.propTypes = {
-  logger: PropTypes.any,
+  environment: PropTypes.bool,
 };
 
 export default AppEntry;

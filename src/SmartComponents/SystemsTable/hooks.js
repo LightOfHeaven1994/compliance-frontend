@@ -1,12 +1,24 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
-import { useApolloClient, useQuery } from '@apollo/client';
+import React, { useEffect, useLayoutEffect, useCallback } from 'react';
+import { useQuery } from '@apollo/client';
 import { useDispatch } from 'react-redux';
+import { Spinner } from '@patternfly/react-core';
 import debounce from '@redhat-cloud-services/frontend-components-utilities/debounce';
-import { systemsWithRuleObjectsFailed } from 'Utilities/ruleHelpers';
-import { osMinorVersionFilter, GET_SYSTEMS_OSES } from './constants';
+import {
+  osMinorVersionFilter,
+  GET_SYSTEMS_OSES,
+  applyInventoryFilters,
+  groupFilterHandler,
+  osFilterHandler,
+  nameFilterHandler,
+} from './constants';
 import useExport from 'Utilities/hooks/useTableTools/useExport';
 import { useBulkSelect } from 'Utilities/hooks/useTableTools/useBulkSelect';
 import { dispatchNotification } from 'Utilities/Dispatcher';
+import usePromiseQueue from 'Utilities/hooks/usePromiseQueue';
+import { setDisabledSelection } from '../../store/Actions/SystemActions';
+import { useFetchSystems, useFetchSystemsV2 } from './hooks/useFetchSystems';
+import useLoadedItems from './hooks/useLoadedItems';
+import useSystem from '../../Utilities/hooks/api/useSystem';
 
 const groupByMajorVersion = (versions = [], showFilter = []) => {
   const showVersion = (version) => {
@@ -57,78 +69,34 @@ export const useSystemsFilter = (
   return filter;
 };
 
-const renameInventoryAttributes = ({
-  culledTimestamp,
-  staleWarningTimestamp,
-  staleTimestamp,
-  insightsId,
-  ...system
-}) => ({
-  ...system,
-  insights_id: insightsId,
-  culled_timestamp: culledTimestamp,
-  stale_warning_timestamp: staleWarningTimestamp,
-  stale_timestamp: staleTimestamp,
-});
+const useFetchBatched = () => {
+  const { isResolving: isLoading, resolve } = usePromiseQueue();
 
-export const useFetchSystems = ({
-  query,
-  onComplete,
-  variables = {},
-  onError,
-}) => {
-  const client = useApolloClient();
+  return {
+    isLoading,
+    fetchBatched: (fetchFunction, total, filter, batchSize = 50) => {
+      const pages = Math.ceil(total / batchSize) || 1;
 
-  return (perPage, page, requestVariables = {}) =>
-    client
-      .query({
-        query,
-        fetchResults: true,
-        fetchPolicy: 'no-cache',
-        variables: {
-          perPage,
-          page,
-          ...variables,
-          ...requestVariables,
-        },
-      })
-      .then(({ data }) => {
-        const systems = data?.systems?.edges?.map((e) => e.node) || [];
-        const entities = systemsWithRuleObjectsFailed(systems).map(
-          renameInventoryAttributes
-        );
-        const result = {
-          entities,
-          meta: {
-            ...(requestVariables.tags && { tags: requestVariables.tags }),
-            totalCount: data?.systems?.totalCount || 0,
-          },
-        };
+      const results = resolve(
+        [...new Array(pages)].map(
+          (_, pageIdx) => () => fetchFunction(batchSize, pageIdx + 1, filter)
+        )
+      );
 
-        onComplete && onComplete(result);
-        return result;
-      })
-      .catch((error) => {
-        if (onError) {
-          onError(error);
-          return { entities: [], meta: { totalCount: 0 } };
-        } else {
-          throw error;
-        }
-      });
+      return results;
+    },
+  };
 };
 
-const fetchBatched = (fetchFunction, total, filter, batchSize = 50) => {
-  const pages = Math.ceil(total / batchSize) || 1;
-  return Promise.all(
-    [...new Array(pages)].map((_, pageIdx) =>
-      fetchFunction(batchSize, pageIdx + 1, filter)
-    )
-  );
-};
+const buildApiFilters = (filters = {}, ignoreOsMajorVersion, apiV2Enabled) => {
+  const {
+    tagFilters,
+    hostGroupFilter,
+    osFilter,
+    hostnameOrId,
+    ...otherFilters
+  } = filters;
 
-const buildApiFilters = (filters = {}) => {
-  const { tagFilters, ...otherFilters } = filters;
   const tagsApiFilter = tagFilters
     ? {
         tags: tagFilters.flatMap((tagFilter) =>
@@ -142,18 +110,48 @@ const buildApiFilters = (filters = {}) => {
       }
     : {};
 
+  if (
+    hostGroupFilter !== undefined &&
+    Array.isArray(hostGroupFilter) &&
+    !apiV2Enabled
+  ) {
+    otherFilters.filter = `(${hostGroupFilter
+      .map((value) => `group_name = "${value}"`)
+      .join(' or ')})`;
+  }
+
   return {
     ...otherFilters,
     ...tagsApiFilter,
+    ...(apiV2Enabled
+      ? {
+          filter: applyInventoryFilters(
+            [groupFilterHandler, osFilterHandler, nameFilterHandler],
+            {
+              osFilter,
+              hostGroupFilter,
+              hostnameOrId,
+            },
+            ignoreOsMajorVersion
+          ),
+        }
+      : {}),
   };
 };
 
-export const useGetEntities = (fetchEntities, { selected, columns } = {}) => {
+export const useGetEntities = (
+  fetchEntities,
+  { selected, columns, ignoreOsMajorVersion, apiV2Enabled } = {}
+) => {
   const appendDirection = (attributes, direction) =>
     attributes.map((attribute) => `${attribute}:${direction}`);
 
-  const findColumnByKey = (key) =>
-    (columns || []).find((column) => column.key === key);
+  const findColumnByKey = (sortKey) =>
+    (columns || []).find(
+      (column) =>
+        column.key === sortKey || // group column has a sort key different to its main key
+        (column.key === 'groups' && sortKey === 'group_name')
+    );
 
   return async (
     _ids,
@@ -164,22 +162,28 @@ export const useGetEntities = (fetchEntities, { selected, columns } = {}) => {
       sortableColumn && sortableColumn.sortBy
         ? appendDirection(sortableColumn.sortBy, orderDirection)
         : undefined;
-    const filterForApi = buildApiFilters(filters);
+    const filterForApi = buildApiFilters(
+      filters,
+      ignoreOsMajorVersion,
+      apiV2Enabled
+    );
 
     const fetchedEntities = await fetchEntities(perPage, page, {
       ...filterForApi,
       sortBy,
     });
+
     const {
       entities,
       meta: { totalCount },
     } = fetchedEntities || {};
 
     return {
-      results: entities.map((entity) => ({
-        ...entity,
-        selected: (selected || []).map((id) => id).includes(entity.id),
-      })),
+      results:
+        entities?.map((entity) => ({
+          ...entity,
+          selected: (selected || []).map((id) => id).includes(entity.id),
+        })) || [],
       orderBy,
       orderDirection,
       total: totalCount,
@@ -231,46 +235,8 @@ export const useInventoryUtilities = (
   }, [activeFilters]);
 };
 
-const toIdFilter = (ids) =>
-  ids?.length > 0 ? `id ^ (${ids.join(',')})` : undefined;
-
-export const useSystemsExport = ({
-  columns,
-  selected,
-  total,
-  fetchArguments,
-}) => {
-  const selectionFilter = selected ? toIdFilter(selected) : undefined;
-  const fetchSystems = useFetchSystems({
-    query: fetchArguments.query,
-    variables: {
-      ...fetchArguments.variables,
-      ...(fetchArguments.tags && { tags: fetchArguments.tags }),
-      filter: selectionFilter
-        ? `${fetchArguments.variables.filter} and (${selectionFilter})`
-        : fetchArguments.variables.filter,
-    },
-    onError: () => {
-      dispatchNotification({
-        variant: 'danger',
-        title: 'Couldn’t download export',
-        description: 'Reinitiate this export to try again.',
-      });
-    },
-  });
-
-  const selectedFilter = () =>
-    selected?.length > 0 ? toIdFilter(selected) : undefined;
-
-  const exporter = async () => {
-    const fetchedItems = await fetchBatched(
-      fetchSystems,
-      total,
-      selectedFilter()
-    );
-
-    return fetchedItems.flatMap((result) => result.entities);
-  };
+export const useSystemsExport = ({ columns, selectedItems, total }) => {
+  const exporter = async () => selectedItems;
 
   const {
     toolbarProps: { exportConfig },
@@ -278,19 +244,26 @@ export const useSystemsExport = ({
     exporter,
     columns,
     isDisabled: total === 0,
-    onStart: () => {
+    onStart: useCallback(() => {
       dispatchNotification({
         variant: 'info',
         title: 'Preparing export',
         description: 'Once complete, your download will start automatically.',
       });
-    },
-    onComplete: () => {
+    }, []),
+    onComplete: useCallback(() => {
       dispatchNotification({
         variant: 'success',
         title: 'Downloading export',
       });
-    },
+    }, []),
+    onError: useCallback(() => {
+      dispatchNotification({
+        variant: 'danger',
+        title: 'Couldn’t download export',
+        description: 'Reinitiate this export to try again.',
+      });
+    }, []),
   });
 
   return exportConfig;
@@ -299,68 +272,131 @@ export const useSystemsExport = ({
 export const useSystemBulkSelect = ({
   total,
   onSelect,
-  preselected,
+  preselectedSystems,
   fetchArguments,
-  currentPageIds,
-  systemsCache = [],
+  currentPageItems,
+  fetchApi,
+  apiV2Enabled,
+  tableLoaded,
 }) => {
-  // This is meant as a compatibility layer and to be removed
-  const [selectedSystems, setSelectedSystems] = useState([]);
-  const fetchSystems = useFetchSystems({
+  const dispatch = useDispatch();
+  const { isLoading, fetchBatched } = useFetchBatched();
+  const { loadedItems, addToLoadedItems, allLoaded } = useLoadedItems(
+    currentPageItems,
+    total
+  );
+  const { fetch: fetchSystem } = useSystem({ skip: true });
+
+  useEffect(() => {
+    const checkFirstPreselected = async () => {
+      for (const preselectedSystemId of preselectedSystems) {
+        if (
+          currentPageItems.find(({ id }) => preselectedSystemId === id) ===
+          undefined
+        ) {
+          const system = await fetchSystem([preselectedSystemId], false);
+          addToLoadedItems([system.data]);
+        }
+      }
+    };
+
+    if (currentPageItems !== undefined && tableLoaded === true) {
+      checkFirstPreselected();
+    }
+  }, [tableLoaded, currentPageItems]);
+
+  useEffect(() => {
+    if (tableLoaded === true && currentPageItems !== undefined) {
+      addToLoadedItems(currentPageItems);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(fetchArguments), addToLoadedItems]);
+
+  const onError = useCallback((error) => {
+    dispatchNotification({
+      variant: 'danger',
+      title: 'Error selecting systems',
+      description: error.message,
+    });
+  }, []);
+
+  const fetchSystemsGraphQL = useFetchSystems({
     ...fetchArguments,
-    onError: (error) => {
-      dispatchNotification({
-        variant: 'danger',
-        title: 'Error selecting systems',
-        description: error.message,
-      });
-    },
+    onError,
   });
 
-  const fetchFunc = async (fetchIds) => {
-    if (fetchIds.length === 0) {
-      return [];
-    }
-
-    const idFilter = toIdFilter(fetchIds);
-    const results = await fetchBatched(fetchSystems, fetchIds.length, {
-      ...(idFilter && { filter: idFilter }),
-    });
-
-    return results.flatMap((result) => result.entities);
-  };
-
-  const cachedOrFetch = async (selectedIds) => {
-    const cachedSystems = systemsCache.filter(({ id }) =>
-      selectedIds.includes(id)
-    );
-    const cachedIds = cachedSystems.map(({ id }) => id);
-    const fetchIds = selectedIds.filter((id) => !cachedIds.includes(id));
-    const fetchedSystems = await fetchFunc(fetchIds);
-
-    return [...cachedSystems, ...fetchedSystems];
-  };
+  const fetchSystemsRest = useFetchSystemsV2(
+    fetchApi,
+    undefined,
+    onError,
+    fetchArguments
+  );
 
   const onSelectCallback = async (selectedIds) => {
-    const systems = await cachedOrFetch(selectedIds);
-    setSelectedSystems(systems);
-    onSelect && onSelect(systems);
+    dispatch(setDisabledSelection(true));
+    const systemsSelection = loadedItems.filter(({ id }) =>
+      selectedIds.includes(id)
+    );
+    onSelect && onSelect(systemsSelection);
+    dispatch(setDisabledSelection(false));
+  };
+
+  const getItemsInTable = async () => {
+    let items = [];
+
+    if (allLoaded) {
+      items = loadedItems;
+    } else {
+      const results = await fetchBatched(
+        apiV2Enabled ? fetchSystemsRest : fetchSystemsGraphQL,
+        total
+      );
+      items = results.flatMap((result) => result.entities);
+      addToLoadedItems(items);
+    }
+
+    return items;
   };
 
   const itemIdsInTable = async () => {
-    const results = await fetchBatched(fetchSystems, total);
-    return results.flatMap((result) => result.entities.map(({ id }) => id));
+    const items = await getItemsInTable();
+
+    return items.map(({ id }) => id);
   };
+
+  const itemIdsOnPage = () =>
+    currentPageItems !== undefined && tableLoaded === true
+      ? currentPageItems.map(({ id }) => id)
+      : [];
 
   const bulkSelect = useBulkSelect({
     total,
     onSelect: onSelectCallback,
-    preselected,
+    preselected: preselectedSystems,
     itemIdsInTable,
-    itemIdsOnPage: () => currentPageIds,
+    itemIdsOnPage,
   });
+
+  const selectedItems = bulkSelect?.selectedIds.map((id) =>
+    loadedItems.find((item) => id === item.id)
+  );
+
   return {
-    selectedSystems,
+    selectedItems,
     ...bulkSelect,
+    toolbarProps: {
+      ...bulkSelect.toolbarProps,
+      bulkSelect: {
+        ...bulkSelect.toolbarProps.bulkSelect,
+        ...(isLoading
+          ? {
+              isDisabled: true,
+              toggleProps: {
+                children: [<Spinner size="md" key="spinner" />],
+              },
+            }
+          : {}),
+      },
+    },
   };
 };
