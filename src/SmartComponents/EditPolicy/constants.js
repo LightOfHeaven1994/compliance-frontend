@@ -1,28 +1,66 @@
-import gql from 'graphql-tag';
+import { gql } from '@apollo/client';
 
-export const PROFILES_QUERY = gql`
-  query Profiles($filter: String!) {
-    profiles(search: $filter) {
-      edges {
-        node {
+export const BENCHMARKS_QUERY = gql`
+  query EP_Benchmarks($filter: String!) {
+    benchmarks(search: $filter) {
+      nodes {
+        id
+        latestSupportedOsMinorVersions
+        ruleTree
+        valueDefinitions {
+          defaultValue
+          description
           id
+          refId
+          title
+          valueType
+        }
+        profiles {
+          id
+          refId
+          ssgVersion
+        }
+      }
+    }
+  }
+`;
+
+export const MULTIVERSION_QUERY = gql`
+  query EP_Profile($policyId: String!) {
+    profile(id: $policyId) {
+      id
+      name
+      refId
+      external
+      description
+      totalHostCount
+      compliantHostCount
+      complianceThreshold
+      osMajorVersion
+      supportedOsVersions
+      lastScanned
+      policyType
+      policy {
+        id
+        name
+        refId
+        profiles {
+          id
+          parentProfileId
           name
           refId
           osMinorVersion
           osMajorVersion
-          policy {
-            id
-          }
-          policyType
+          values
           benchmark {
             id
-            refId
+            title
             latestSupportedOsMinorVersions
             osMajorVersion
             version
+            ruleTree
           }
           rules {
-            id
             title
             severity
             rationale
@@ -30,23 +68,46 @@ export const PROFILES_QUERY = gql`
             description
             remediationAvailable
             identifier
+            values
           }
         }
+      }
+      businessObjective {
+        id
+        title
+      }
+      hosts {
+        id
+        osMinorVersion
+        osMajorVersion
       }
     }
   }
 `;
 
-export const BENCHMARKS_QUERY = gql`
-  query Benchmarks($filter: String!) {
-    benchmarks(search: $filter) {
-      nodes {
+export const RULE_VALUE_DEFINITIONS_QUERY = gql`
+  query EP_ProfileValueDefinitions($policyId: String!) {
+    profile(id: $policyId) {
+      id
+      policy {
         id
-        latestSupportedOsMinorVersions
+        refId
         profiles {
           id
+          parentProfileId
           refId
-          ssgVersion
+          benchmark {
+            id
+            ruleTree
+            valueDefinitions {
+              defaultValue
+              description
+              id
+              refId
+              title
+              valueType
+            }
+          }
         }
       }
     }
