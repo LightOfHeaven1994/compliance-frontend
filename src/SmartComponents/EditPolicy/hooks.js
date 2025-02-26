@@ -1,21 +1,78 @@
-import { useState } from 'react';
-import { usePolicy } from 'Mutations';
-import { useLinkToBackground, useAnchor } from 'Utilities/Router';
+import { useCallback, useState } from 'react';
 import { dispatchNotification } from 'Utilities/Dispatcher';
+import useAssignRules from '../../Utilities/hooks/api/useAssignRules';
+import useAssignSystems from '../../Utilities/hooks/api/useAssignSystems';
+import useTailorings from '../../Utilities/hooks/api/useTailorings';
+import useUpdatePolicy from '../../Utilities/hooks/api/useUpdatePolicy';
 
-export const useLinkToPolicy = () => {
-  const anchor = useAnchor();
-  const linkToBackground = useLinkToBackground('/scappolicies');
-  return () => {
-    linkToBackground({ hash: anchor });
+const useUpdatePolicyRest = (policy, updatedPolicyHostsAndRules) => {
+  const {
+    hosts,
+    tailoringRules,
+    description,
+    businessObjective,
+    complianceThreshold,
+  } = updatedPolicyHostsAndRules || {};
+
+  const { fetch: assignRules } = useAssignRules({ skip: true });
+  const { fetch: assignSystems } = useAssignSystems({ skip: true });
+  const { fetch: fetchTailorings } = useTailorings({ skip: true });
+  const { fetch: updatePolicy } = useUpdatePolicy({ skip: true });
+
+  const updatePolicyRest = async () => {
+    const policyId = policy.id;
+
+    if (hosts !== undefined) {
+      await assignSystems({ policyId, assignSystemsRequest: { ids: hosts } });
+    }
+
+    if (tailoringRules) {
+      const tailoringsResponse = await fetchTailorings(
+        {
+          policyId,
+          limit: 100,
+        },
+        false
+      ); // fetch the most up-to-date tailorings
+      const tailoringsUpdated = tailoringsResponse.data;
+      for (const entry of Object.entries(tailoringRules)) {
+        const [osMinorVersion, rules] = entry;
+        await assignRules({
+          policyId,
+          tailoringId: tailoringsUpdated.find(
+            ({ os_minor_version }) =>
+              os_minor_version === Number(osMinorVersion)
+          ).id,
+          assignRulesRequest: { ids: rules },
+        });
+      }
+    }
+
+    if (description || businessObjective || complianceThreshold) {
+      await updatePolicy({
+        policyId,
+        policyUpdate: {
+          description,
+          business_objective: businessObjective?.title ?? '--',
+          compliance_threshold: parseFloat(complianceThreshold),
+        },
+      });
+    }
   };
+
+  return updatePolicyRest;
 };
 
-export const useOnSave = (policy, updatedPolicyHostsAndRules) => {
-  const updatePolicy = usePolicy();
-  const linkToPolicy = useLinkToPolicy();
+export const useOnSave = (
+  policy,
+  updatedPolicyHostsAndRules,
+  { onSave: onSaveCallback, onError: onErrorCallback } = {}
+) => {
+  const updatePolicy = useUpdatePolicyRest(policy, updatedPolicyHostsAndRules);
+
   const [isSaving, setIsSaving] = useState(false);
-  const onSave = () => {
+
+  const onSave = useCallback(() => {
     if (isSaving) {
       return Promise.resolve({});
     }
@@ -29,7 +86,7 @@ export const useOnSave = (policy, updatedPolicyHostsAndRules) => {
           title: 'Policy updated',
           autoDismiss: true,
         });
-        linkToPolicy();
+        onSaveCallback?.(true);
       })
       .catch((error) => {
         setIsSaving(false);
@@ -38,51 +95,9 @@ export const useOnSave = (policy, updatedPolicyHostsAndRules) => {
           title: 'Error updating policy',
           description: error.message,
         });
-        linkToPolicy();
+        onErrorCallback?.();
       });
-  };
+  }, [isSaving, policy, updatedPolicyHostsAndRules]);
 
-  return [isSaving, onSave];
-};
-export const useSavePolicyDetails = (policyId) => {
-  const anchor = useAnchor();
-  const linkToBackground = useLinkToBackground(`/scappolicies/${policyId}`);
-  return () => {
-    linkToBackground({ hash: anchor });
-  };
-};
-
-export const useOnSavePolicyDetails = (
-  policy,
-  updatedPolicyHostsAndRules,
-  closingFunction,
-  policyId
-) => {
-  const updatePolicy = usePolicy();
-  const savePolicyDetails = useSavePolicyDetails(policyId);
-  const [isSaving, setIsSaving] = useState(false);
-  const onSave = () => {
-    setIsSaving(true);
-    closingFunction();
-    updatePolicy(policy, updatedPolicyHostsAndRules)
-      .then(() => {
-        setIsSaving(false);
-        dispatchNotification({
-          variant: 'success',
-          title: 'Policy updated',
-          autoDismiss: true,
-        });
-        savePolicyDetails();
-      })
-      .catch((error) => {
-        setIsSaving(false);
-        dispatchNotification({
-          variant: 'danger',
-          title: 'Error updating policy',
-          description: error.message,
-        });
-        savePolicyDetails();
-      });
-  };
   return [isSaving, onSave];
 };

@@ -1,72 +1,60 @@
-import React, { useEffect } from 'react';
-import gql from 'graphql-tag';
-import { useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import React, { useCallback } from 'react';
 import { Grid } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
-import ComplianceEmptyState from 'PresentationalComponents/ComplianceEmptyState';
 import {
-  BackgroundLink,
   ErrorPage,
   LoadingPoliciesTable,
   PoliciesTable,
   StateView,
   StateViewPart,
-  LinkButton,
 } from 'PresentationalComponents';
+import usePolicies from 'Utilities/hooks/api/usePolicies';
+import usePoliciesCount from 'Utilities/hooks/usePoliciesCount';
+import useExporter from '@/Frameworks/AsyncTableTools/hooks/useExporter';
+import CreateLink from 'SmartComponents/CompliancePolicies/components/CreateLink';
+import ComplianceEmptyState from 'PresentationalComponents/ComplianceEmptyState';
+import TableStateProvider from '@/Frameworks/AsyncTableTools/components/TableStateProvider';
 
-const QUERY = gql`
-  {
-    profiles(search: "external = false and canonical = false") {
-      edges {
-        node {
-          id
-          name
-          description
-          refId
-          complianceThreshold
-          totalHostCount
-          osMajorVersion
-          policyType
-          policy {
-            id
-            name
-          }
-          businessObjective {
-            id
-            title
-          }
-        }
-      }
-    }
-  }
-`;
+const CompliancePolicies = () => {
+  // Async table needs info about total policy count before mounting
+  // Also required for correctly showing empty state
+  const totalPolicies = usePoliciesCount();
+  let totalPoliciesLoading = totalPolicies == null;
 
-export const CompliancePolicies = () => {
-  const location = useLocation();
-  const createLink = (
-    <BackgroundLink
-      to="/scappolicies/new"
-      component={LinkButton}
-      variant="primary"
-      ouiaId="CreateNewPolicyButton"
-    >
-      Create new policy
-    </BackgroundLink>
+  const options = {
+    useTableState: true,
+  };
+
+  let {
+    data: { data, meta: { total: currentTotalPolicies } = {} } = {},
+    error,
+    loading,
+    fetch: fetchPolicies,
+  } = usePolicies(options);
+
+  const fetchForExport = useCallback(
+    async (offset, limit) => await fetchPolicies({ offset, limit }, false),
+    [fetchPolicies]
   );
-  let { data, error, loading, refetch } = useQuery(QUERY);
-  useEffect(() => {
-    refetch();
-  }, [location, refetch]);
-  let policies;
 
-  if (data) {
-    error = undefined;
-    loading = undefined;
-    policies = data.profiles.edges.map((profile) => profile.node);
+  const policiesExporter = useExporter(fetchForExport);
+
+  let showTable = data || !totalPoliciesLoading;
+
+  if (showTable) {
+    if (data) {
+      error = undefined;
+    }
+    totalPoliciesLoading = undefined;
+  }
+  // Async table always needs one total value
+  const calculatedTotal = currentTotalPolicies ?? totalPolicies;
+
+  if (error) {
+    totalPoliciesLoading = undefined;
+    showTable = undefined;
   }
 
   return (
@@ -74,30 +62,50 @@ export const CompliancePolicies = () => {
       <PageHeader className="page-header">
         <PageHeaderTitle title="SCAP policies" />
       </PageHeader>
-      <Main>
-        <StateView stateValues={{ error, data, loading }}>
+      <section className="pf-v5-c-page__main-section">
+        <StateView
+          stateValues={{
+            error,
+            loading: totalPoliciesLoading,
+            showTable: showTable,
+          }}
+        >
           <StateViewPart stateKey="error">
             <ErrorPage error={error} />
           </StateViewPart>
           <StateViewPart stateKey="loading">
             <LoadingPoliciesTable />
           </StateViewPart>
-          <StateViewPart stateKey="data">
-            {policies && policies.length === 0 ? (
+          <StateViewPart stateKey="showTable">
+            {totalPolicies === 0 ? (
               <Grid hasGutter>
                 <ComplianceEmptyState
                   title="No policies"
-                  mainButton={createLink}
+                  mainButton={<CreateLink />}
                 />
               </Grid>
             ) : (
-              <PoliciesTable policies={policies} />
+              <PoliciesTable
+                policies={data}
+                total={calculatedTotal}
+                loading={loading}
+                DedicatedAction={CreateLink}
+                options={{
+                  exporter: async () => await policiesExporter(),
+                }}
+              />
             )}
           </StateViewPart>
         </StateView>
-      </Main>
+      </section>
     </React.Fragment>
   );
 };
 
-export default CompliancePolicies;
+const PoliciesWithTableStateProvider = () => (
+  <TableStateProvider>
+    <CompliancePolicies />
+  </TableStateProvider>
+);
+
+export default PoliciesWithTableStateProvider;

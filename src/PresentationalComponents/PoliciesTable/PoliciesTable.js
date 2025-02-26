@@ -1,32 +1,24 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import { COMPLIANCE_TABLE_DEFAULTS } from '@/constants';
-import { BackgroundLink, LinkButton } from 'PresentationalComponents';
-import { TableToolsTable } from 'Utilities/hooks/useTableTools';
-import useFeature from 'Utilities/hooks/useFeature';
 import columns, { exportableColumns } from './Columns';
 import * as Filters from './Filters';
 import { emptyRows } from '../../Utilities/hooks/useTableTools/Components/NoResultsTable';
 import useActionResolver from './hooks/useActionResolvers';
+import ComplianceTable from 'PresentationalComponents/ComplianceTable/ComplianceTable';
 
-const DedicatedAction = () => (
-  <BackgroundLink
-    to="/scappolicies/new"
-    component={LinkButton}
-    variant="primary"
-    ouiaId="CreateNewPolicyButton"
-  >
-    Create new policy
-  </BackgroundLink>
-);
-
-export const PoliciesTable = ({ policies }) => {
-  const manageColumnsEnabled = useFeature('manageColumns');
+export const PoliciesTable = ({
+  policies,
+  DedicatedAction,
+  total,
+  loading,
+  options,
+}) => {
   const filters = Object.values(Filters);
-  const actionResolver = useActionResolver(policies);
+  const actionResolver = useActionResolver();
 
   return (
-    <TableToolsTable
+    <ComplianceTable
       aria-label="Policies"
       ouiaId="PoliciesTable"
       className="compliance-policies-table"
@@ -36,16 +28,18 @@ export const PoliciesTable = ({ policies }) => {
       filters={{
         filterConfig: filters,
       }}
+      total={total}
+      loading={loading}
       options={{
         ...COMPLIANCE_TABLE_DEFAULTS,
         actionResolver,
-        dedicatedAction: DedicatedAction,
+        ...(DedicatedAction ? { dedicatedAction: DedicatedAction } : {}),
         exportable: {
           ...COMPLIANCE_TABLE_DEFAULTS.exportable,
           columns: exportableColumns,
         },
-        manageColumns: manageColumnsEnabled,
         emptyRows: emptyRows('policies', columns.length),
+        ...options,
       }}
     />
   );
@@ -53,10 +47,10 @@ export const PoliciesTable = ({ policies }) => {
 
 PoliciesTable.propTypes = {
   policies: propTypes.array.isRequired,
-};
-
-PoliciesTable.defaultProps = {
-  policies: [],
+  DedicatedAction: propTypes.oneOfType([propTypes.node, propTypes.func]),
+  total: propTypes.number,
+  loading: propTypes.bool,
+  options: propTypes.object,
 };
 
 export default PoliciesTable;

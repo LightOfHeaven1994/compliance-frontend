@@ -5,13 +5,15 @@ const filterColumnsBySelected = (columns, selected) =>
   columns.filter((column) => selected.includes(column.title));
 
 const useColumnManager = (columns = [], options = {}) => {
-  const managableColumns = columns
+  const manageableColumns = columns
     .map((column) =>
-      column?.managable === undefined ? { ...column, managable: true } : column
+      column?.manageable === undefined
+        ? { ...column, manageable: true }
+        : column
     )
-    .filter((column) => column.managable === true);
+    .filter((column) => column.manageable === true);
   const [selectedColumns, setSelectedColumns] = useState(
-    columns.map(({ title }) => title)
+    columns.map(({ hiddenByDefault, title }) => !hiddenByDefault && title)
   );
   const [isManagerOpen, setIsManagerOpen] = useState(false);
   const { manageColumns: enableColumnManager } = options;
@@ -33,7 +35,7 @@ const useColumnManager = (columns = [], options = {}) => {
         },
         ColumnManager: () => (
           <ColumnManager
-            columns={managableColumns}
+            columns={manageableColumns}
             isOpen={isManagerOpen}
             onClose={() => setIsManagerOpen(false)}
             selectedColumns={selectedColumns}
