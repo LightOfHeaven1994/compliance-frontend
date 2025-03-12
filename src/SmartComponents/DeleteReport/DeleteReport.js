@@ -1,48 +1,36 @@
-import { Button, ModalVariant, TextContent } from '@patternfly/react-core';
-import propTypes from 'prop-types';
 import React from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
-import { useMutation } from '@apollo/client';
-import { DELETE_REPORT } from 'Mutations';
-import { addNotification } from '@redhat-cloud-services/frontend-components-notifications/redux';
+import { Button, ModalVariant, TextContent } from '@patternfly/react-core';
+import { useParams } from 'react-router-dom';
 import { ComplianceModal } from 'PresentationalComponents';
-import { dispatchAction } from 'Utilities/Dispatcher';
+import useNavigate from '@redhat-cloud-services/frontend-components-utilities/useInsightsNavigate';
+import { apiInstance } from '../../Utilities/hooks/useQuery';
+import { handleDeleteReport } from './helpers';
 
+/**
+ * DeleteReport Component
+ *
+ * Renders the modal for deleting a report. It provides buttons for confirming
+ * or canceling the deletion.
+ *
+ *  @returns {React.Element} The rendered DeleteReport component.
+ */
 const DeleteReport = () => {
-  const history = useHistory();
-  const location = useLocation();
-  const { id } = location.state?.profile;
+  const { report_id: reportId } = useParams();
+  const navigate = useNavigate();
   const onClose = () => {
-    history.push(location.state.background);
+    navigate(-1);
   };
 
   const onDelete = () => {
-    history.push('/reports');
+    navigate('/reports');
   };
+  const deleteReport = () =>
+    handleDeleteReport(
+      () => apiInstance.deleteReport(reportId),
+      onDelete,
+      onClose
+    );
 
-  const [deleteReport] = useMutation(DELETE_REPORT, {
-    onCompleted: () => {
-      dispatchAction(
-        addNotification({
-          variant: 'success',
-          title: 'Report deleted',
-          description:
-            'Systems associated with this policy will upload reports on the next check-in.',
-        })
-      );
-      onDelete();
-    },
-    onError: (error) => {
-      dispatchAction(
-        addNotification({
-          variant: 'danger',
-          title: 'Error removing report',
-          description: error.message,
-        })
-      );
-      onClose();
-    },
-  });
   return (
     <ComplianceModal
       isOpen
@@ -57,15 +45,7 @@ const DeleteReport = () => {
           ouiaId="DeleteReportButton"
           aria-label="delete"
           variant="danger"
-          onClick={() =>
-            deleteReport({
-              variables: {
-                input: {
-                  profileId: id,
-                },
-              },
-            })
-          }
+          onClick={() => deleteReport(reportId)}
         >
           Delete report
         </Button>,
@@ -84,18 +64,6 @@ const DeleteReport = () => {
       </TextContent>
     </ComplianceModal>
   );
-};
-
-DeleteReport.propTypes = {
-  onClose: propTypes.func,
-  isModalOpen: propTypes.bool,
-  onDelete: propTypes.func,
-  policyId: propTypes.string,
-};
-
-DeleteReport.defaultProps = {
-  onDelete: () => {},
-  onClose: () => {},
 };
 
 export default DeleteReport;

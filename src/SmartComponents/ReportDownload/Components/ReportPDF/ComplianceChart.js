@@ -1,13 +1,13 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import chart_color_gold_300 from '@patternfly/react-tokens/dist/esm/chart_color_gold_300';
+import { paletteColors } from '../../../../constants';
 // eslint-disable-next-line rulesdir/disallow-fec-relative-imports
-import { Chart } from '@redhat-cloud-services/frontend-components-pdf-generator';
+import { Chart } from '@redhat-cloud-services/frontend-components-pdf-generator/dist/esm/index';
 import { fixedPercentage } from 'Utilities/TextHelper';
 
 // TODO Legend table style need to be disablable
 const ComplianceChart = ({
-  policy: { percentCompliant = 0 },
+  percentCompliant = 0,
   compliantSystemCount,
   nonCompliantSystemCount,
   unsupportedSystemCount,
@@ -27,7 +27,7 @@ const ComplianceChart = ({
           {
             x: `${unsupportedSystemCount} systems not supported`,
             y: unsupportedSystemCount,
-            color: chart_color_gold_300.value,
+            color: paletteColors.gold300,
           },
         ]
       : []),
@@ -55,7 +55,7 @@ const ComplianceChart = ({
 };
 
 ComplianceChart.propTypes = {
-  policy: propTypes.object,
+  percentCompliant: propTypes.number,
   compliantSystemCount: propTypes.number,
   nonCompliantSystemCount: propTypes.number,
   unsupportedSystemCount: propTypes.number,
