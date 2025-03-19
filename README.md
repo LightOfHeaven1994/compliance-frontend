@@ -20,8 +20,9 @@ Both will require to have hostnames like `stage.foo.redhat.com` resolve to the l
 Running webpack with "useProxy" can be used instead of insights-proxy for backend routes.
 
 ```shell
-$ npm run start:proxy
-$ npm run start:proxy:beta # Will run the UI with beta chrome
+$ npm run start  # Will run only webpack
+$ npm run start:proxy # Will run webpack and have proxying enabled
+$ LOCAL_APIS=compliance:3000,inventory:8081,ingress:8080,rbac:9002 npm run start:proxy # Will run webpack and have proxying enabled and route APIs to local endpoints
 ```
 
 ### In containers
@@ -51,6 +52,12 @@ To enable the routes for proxying to a local inventory add `inventory:5000` (`AP
 
 All application/service hosts for the APIs can be overridden via a environment variable like `LOCAL_INVENTORY_HOST`.
 
+## Documentation
+
+The repository contains components covered with the documentation comments using JSDoc markup language. The HTML documentation can be generated with the `npm run docs` script. Additionally, the documentation is automatically built with the [Generate and Release Documentation](/.github/workflows//docs.yml) GitHub action.
+
+The deployed documentation is available at https://redhatinsights.github.io/compliance-frontend.
+
 ## Code Notes
 
 ### Technology stack
@@ -58,7 +65,6 @@ All application/service hosts for the APIs can be overridden via a environment v
   * [React](https://reactjs.org)
   * [Patternfly](https://github.com/patternfly/patternfly-react)
   * [Jest](https://jestjs.io) & [enzyme](https://enzymejs.github.io/enzyme/)
-  * GraphQL (using [Apollo](https://www.apollographql.com/docs/react/))
 
 ### Code standards
 
@@ -101,6 +107,8 @@ To use them in/with Compliance and set routes for the locally running Inventory 
 ```sh
 $ LOCAL_APPS=inventory:8003 npm run start:proxy
 ```
+
+See also https://github.com/RedHatInsights/frontend-components/blob/master/packages/config/README.md#running-multiple-local-frontend-applications
 
 ###### Run compliance building and exposing federated modules
 
