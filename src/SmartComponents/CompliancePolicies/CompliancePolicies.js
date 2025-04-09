@@ -1,103 +1,90 @@
-import React, { useEffect } from 'react';
-import gql from 'graphql-tag';
-import { useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
-import { Grid } from '@patternfly/react-core';
+import React from 'react';
+import { Grid, Spinner } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
-import ComplianceEmptyState from 'PresentationalComponents/ComplianceEmptyState';
 import {
-  BackgroundLink,
   ErrorPage,
-  LoadingPoliciesTable,
   PoliciesTable,
   StateView,
   StateViewPart,
-  LinkButton,
 } from 'PresentationalComponents';
+import usePolicies from 'Utilities/hooks/api/usePolicies';
+import CreateLink from 'SmartComponents/CompliancePolicies/components/CreateLink';
+import ComplianceEmptyState from 'PresentationalComponents/ComplianceEmptyState';
+import TableStateProvider from '@/Frameworks/AsyncTableTools/components/TableStateProvider';
 
-const QUERY = gql`
-  {
-    profiles(search: "external = false and canonical = false") {
-      edges {
-        node {
-          id
-          name
-          description
-          refId
-          complianceThreshold
-          totalHostCount
-          osMajorVersion
-          policyType
-          policy {
-            id
-            name
-          }
-          businessObjective {
-            id
-            title
-          }
-        }
-      }
-    }
-  }
-`;
+const CompliancePolicies = () => {
+  // Async table needs info about total policy count before mounting
+  // Also required for correctly showing empty state
+  const {
+    data: totalPolicies,
+    error: totalPoliciesError,
+    loading: totalPoliciesLoading,
+  } = usePolicies({
+    onlyTotal: true,
+  });
 
-export const CompliancePolicies = () => {
-  const location = useLocation();
-  const createLink = (
-    <BackgroundLink
-      to="/scappolicies/new"
-      component={LinkButton}
-      variant="primary"
-      ouiaId="CreateNewPolicyButton"
-    >
-      Create new policy
-    </BackgroundLink>
-  );
-  let { data, error, loading, refetch } = useQuery(QUERY);
-  useEffect(() => {
-    refetch();
-  }, [location, refetch]);
-  let policies;
-
-  if (data) {
-    error = undefined;
-    loading = undefined;
-    policies = data.profiles.edges.map((profile) => profile.node);
-  }
+  let {
+    data: { data, meta: { total: currentTotalPolicies } = {} } = {},
+    error: policiesError,
+    loading: policiesLoading,
+    exporter,
+  } = usePolicies({
+    useTableState: true,
+    batch: { batchSize: 10 },
+  });
+  const error = policiesError || totalPoliciesError;
 
   return (
     <React.Fragment>
       <PageHeader className="page-header">
         <PageHeaderTitle title="SCAP policies" />
       </PageHeader>
-      <Main>
-        <StateView stateValues={{ error, data, loading }}>
+      <section className="pf-v5-c-page__main-section">
+        <StateView
+          stateValues={{
+            error: error,
+            loading: totalPoliciesLoading,
+            showTable: totalPolicies !== undefined && !error,
+          }}
+        >
           <StateViewPart stateKey="error">
             <ErrorPage error={error} />
           </StateViewPart>
           <StateViewPart stateKey="loading">
-            <LoadingPoliciesTable />
+            <Spinner />
           </StateViewPart>
-          <StateViewPart stateKey="data">
-            {policies && policies.length === 0 ? (
+          <StateViewPart stateKey="showTable">
+            {totalPolicies === 0 ? (
               <Grid hasGutter>
                 <ComplianceEmptyState
                   title="No policies"
-                  mainButton={createLink}
+                  mainButton={<CreateLink />}
                 />
               </Grid>
             ) : (
-              <PoliciesTable policies={policies} />
+              <PoliciesTable
+                policies={data}
+                total={currentTotalPolicies}
+                loading={policiesLoading}
+                DedicatedAction={CreateLink}
+                options={{
+                  exporter,
+                }}
+              />
             )}
           </StateViewPart>
         </StateView>
-      </Main>
+      </section>
     </React.Fragment>
   );
 };
 
-export default CompliancePolicies;
+const PoliciesWithTableStateProvider = () => (
+  <TableStateProvider>
+    <CompliancePolicies />
+  </TableStateProvider>
+);
+
+export default PoliciesWithTableStateProvider;
