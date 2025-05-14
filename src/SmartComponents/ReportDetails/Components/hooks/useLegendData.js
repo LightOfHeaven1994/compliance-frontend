@@ -1,44 +1,31 @@
 import React from 'react';
-import { Text } from '@patternfly/react-core';
-import blue200 from '@patternfly/react-tokens/dist/esm/chart_color_blue_200';
-import blue300 from '@patternfly/react-tokens/dist/esm/chart_color_blue_300';
-import chart_color_black_200 from '@patternfly/react-tokens/dist/esm/chart_color_black_200';
-import chart_color_gold_300 from '@patternfly/react-tokens/dist/esm/chart_color_gold_300';
-import { pluralize } from 'Utilities/TextHelper';
+import { pluralize, Text } from '@patternfly/react-core';
 import { SupportedSSGVersionsLink } from 'PresentationalComponents';
+import { paletteColors } from '../../../../constants';
 
-const useLegendData = (donutValues, profile) => {
-  const {
-    testResultHostCount = 0,
-    unsupportedHostCount = 0,
-    totalHostCount = 0,
-  } = profile;
-  const notReportingHostCount =
-    totalHostCount - unsupportedHostCount - testResultHostCount;
+const useLegendData = (donutValues) => {
+  const compliantSystemCount = donutValues[0].y;
+  const nonCompliantSystemCount = donutValues[1].y;
+  const unsupportedSystemCount = donutValues[2].y;
+  const notReportingSystemCount = donutValues[3].y;
 
   return [
     {
-      name: `${donutValues[0].y} ${pluralize(
-        donutValues[0].y,
-        'system'
-      )} compliant`,
-      symbol: { fill: blue300.value },
+      name: `${pluralize(compliantSystemCount, 'system')} compliant`,
+      symbol: { fill: paletteColors.blue300 },
     },
     {
-      name: `${donutValues[1].y} ${pluralize(
-        donutValues[1].y,
-        'system'
-      )} non-compliant`,
-      symbol: { fill: blue200.value },
+      name: `${pluralize(nonCompliantSystemCount, 'system')} non-compliant`,
+      symbol: { fill: paletteColors.blue200 },
     },
-    ...(unsupportedHostCount > 0
+    ...(unsupportedSystemCount > 0
       ? [
           {
-            name: `${donutValues[2].y} ${pluralize(
-              donutValues[2].y,
+            name: `${pluralize(
+              unsupportedSystemCount,
               'system'
             )} not supported`,
-            symbol: { fill: chart_color_gold_300.value },
+            symbol: { fill: paletteColors.gold300 },
             popover: {
               title: 'Unsupported SSG versions',
               content: (
@@ -59,21 +46,24 @@ const useLegendData = (donutValues, profile) => {
           },
         ]
       : []),
-    ...(notReportingHostCount > 0
+    ...(notReportingSystemCount > 0
       ? [
           {
-            name: `${notReportingHostCount} ${pluralize(
-              notReportingHostCount,
+            name: `${pluralize(
+              notReportingSystemCount,
               'system'
             )} never reported`,
             popover: {
               title: 'Systems never reported',
-              content: `${notReportingHostCount} ${pluralize(
-                notReportingHostCount,
-                'system'
-              )} are not reporting scan results. This may be because the system is disconnected, or the insights-client is not properly configured to use Compliance.`,
+              content: `${pluralize(
+                notReportingSystemCount,
+                'system is',
+                'systems are'
+              )} not reporting scan results. This may be because the ${
+                notReportingSystemCount === 1 ? 'system is' : 'systems are'
+              } disconnected, or the insights-client is not properly configured to use Compliance.`,
             },
-            symbol: { fill: chart_color_black_200.value },
+            symbol: { fill: paletteColors.black200 },
           },
         ]
       : []),
