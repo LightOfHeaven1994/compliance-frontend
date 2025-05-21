@@ -1,7 +1,7 @@
 import FilterConfigBuilder from './FilterConfigBuilder';
 import FilterBuilder from './FilterBuilder';
 import { exampleFilters } from '../__fixtures__/filters';
-import { COMPLIANT_SYSTEMS_FILTER_CONFIGURATION } from '@/constants';
+import { compliantSystemFilterConfiguration } from '@/constants';
 
 describe('buildFilterString', () => {
   const configBuilder = new FilterConfigBuilder(exampleFilters);
@@ -53,23 +53,27 @@ describe('buildFilterString', () => {
   });
 
   describe('builds filters from constants in use: ', () => {
-    it('COMPLIANT_SYSTEMS_FILTER_CONFIGURATION', () => {
+    it('compliantSystemFilterConfiguration Rest', () => {
       let builder = new FilterBuilder(
-        new FilterConfigBuilder(COMPLIANT_SYSTEMS_FILTER_CONFIGURATION)
+        new FilterConfigBuilder(compliantSystemFilterConfiguration())
       );
 
       expect(
         builder.buildFilterString({
           compliancescore: ['0-50', '50-70'],
         })
-      ).toMatchSnapshot();
+      ).toEqual(
+        '((score >= 0 and score < 50) OR (score >= 50 and score < 70))'
+      );
 
       expect(
         builder.buildFilterString({
           compliancescore: ['90-101', '70-90'],
-          compliance: [true],
+          compliance: ['compliant=true'],
         })
-      ).toMatchSnapshot();
+      ).toEqual(
+        'compliant=true AND ((score >= 90 and score < 101) OR (score >= 70 and score < 90))'
+      );
     });
   });
 });
