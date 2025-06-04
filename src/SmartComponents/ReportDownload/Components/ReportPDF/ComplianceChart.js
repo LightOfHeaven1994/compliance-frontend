@@ -1,13 +1,14 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import chart_color_gold_300 from '@patternfly/react-tokens/dist/esm/chart_color_gold_300';
+import { paletteColors } from '../../../../constants';
 // eslint-disable-next-line rulesdir/disallow-fec-relative-imports
-import { Chart } from '@redhat-cloud-services/frontend-components-pdf-generator';
+import { Chart } from '@redhat-cloud-services/frontend-components-pdf-generator/dist/esm/index';
 import { fixedPercentage } from 'Utilities/TextHelper';
+import { pluralize } from '@patternfly/react-core';
 
 // TODO Legend table style need to be disablable
 const ComplianceChart = ({
-  policy: { percentCompliant = 0 },
+  percentCompliant = 0,
   compliantSystemCount,
   nonCompliantSystemCount,
   unsupportedSystemCount,
@@ -15,26 +16,26 @@ const ComplianceChart = ({
 }) => {
   const compliantSystemsChartData = [
     {
-      x: `${compliantSystemCount} systems compliant`,
+      x: `${pluralize(compliantSystemCount, 'system')} compliant`,
       y: compliantSystemCount,
     },
     {
-      x: `${nonCompliantSystemCount} systems non-compliant`,
+      x: `${pluralize(nonCompliantSystemCount, 'system')} non-compliant`,
       y: nonCompliantSystemCount,
     },
     ...(unsupportedSystemCount > 0
       ? [
           {
-            x: `${unsupportedSystemCount} systems not supported`,
+            x: `${pluralize(unsupportedSystemCount, 'system')} not supported`,
             y: unsupportedSystemCount,
-            color: chart_color_gold_300.value,
+            color: paletteColors.gold300,
           },
         ]
       : []),
     ...(nonReportingSystemCount > 0
       ? [
           {
-            x: `${nonReportingSystemCount} systems never reported`,
+            x: `${pluralize(nonReportingSystemCount, 'system')} never reported`,
             y: nonReportingSystemCount,
           },
         ]
@@ -55,7 +56,7 @@ const ComplianceChart = ({
 };
 
 ComplianceChart.propTypes = {
-  policy: propTypes.object,
+  percentCompliant: propTypes.number,
   compliantSystemCount: propTypes.number,
   nonCompliantSystemCount: propTypes.number,
   unsupportedSystemCount: propTypes.number,

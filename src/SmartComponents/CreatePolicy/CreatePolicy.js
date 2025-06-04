@@ -1,24 +1,26 @@
-import React, { useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import propTypes from 'prop-types';
 import { formValueSelector, reduxForm } from 'redux-form';
 import { connect } from 'react-redux';
-import propTypes from 'prop-types';
-import { Wizard } from '@patternfly/react-core';
+import useNavigate from '@redhat-cloud-services/frontend-components-utilities/useInsightsNavigate';
+import { Wizard } from '@patternfly/react-core/deprecated';
+import usePolicies from 'Utilities/hooks/api/usePolicies';
+import useFeatureFlag from 'Utilities/hooks/useFeatureFlag';
 import CreateSCAPPolicy from './CreateSCAPPolicy';
-import { default as EditPolicyRules } from './EditPolicyProfilesRules';
+import { default as EditPolicyRules } from './EditPolicyProfilesRules/EditPolicyProfilesRules';
 import EditPolicySystems from './EditPolicySystems';
 import EditPolicyDetails from './EditPolicyDetails';
 import ReviewCreatedPolicy from './ReviewCreatedPolicy';
 import FinishedCreatePolicy from './FinishedCreatePolicy';
+import CreatePolicyFooter from './CreatePolicyFooter';
 import {
-  validateBenchmarkPage,
+  validateSecurityGuidePage,
   validateDetailsPage,
   validateRulesPage,
   validateSystemsPage,
 } from './validate';
 
 export const CreatePolicyForm = ({
-  benchmark,
   osMajorVersion,
   complianceThreshold,
   name,
@@ -28,11 +30,13 @@ export const CreatePolicyForm = ({
   systemIds,
   reset,
 }) => {
-  const history = useHistory();
+  const enableHostless = useFeatureFlag('image-builder.compliance.enabled');
+  const navigate = useNavigate();
   const [stepIdReached, setStepIdReached] = useState(1);
   const resetAnchor = () => {
+    // TODO replace this with proper react router hooks
     const { location } = history;
-    if (location.hash) {
+    if (location?.hash) {
       history.push({ ...location, hash: '' });
     }
   };
@@ -44,15 +48,24 @@ export const CreatePolicyForm = ({
 
   const onClose = () => {
     reset();
-    history.push('/scappolicies');
+    navigate('/scappolicies');
   };
+
+  const { data: policiesTotal } = usePolicies({
+    onlyTotal: true,
+  });
+
+  const allowNoSystems = useMemo(
+    () => enableHostless && policiesTotal === 0,
+    [policiesTotal, enableHostless]
+  );
 
   const steps = [
     {
       id: 1,
       name: 'Create SCAP policy',
       component: <CreateSCAPPolicy />,
-      enableNext: validateBenchmarkPage(benchmark, osMajorVersion, profile),
+      enableNext: validateSecurityGuidePage(osMajorVersion, profile),
     },
     {
       id: 2,
@@ -64,25 +77,26 @@ export const CreatePolicyForm = ({
     {
       id: 3,
       name: 'Systems',
-      component: <EditPolicySystems />,
+      component: <EditPolicySystems allowNoSystems={allowNoSystems} />,
       canJumpTo: stepIdReached >= 3,
-      enableNext: validateSystemsPage(systemIds),
+      enableNext: validateSystemsPage(systemIds, allowNoSystems),
     },
     {
       id: 4,
       name: 'Rules',
       component: <EditPolicyRules />,
-      canJumpTo: systemIds?.length > 0 && stepIdReached >= 4,
+      canJumpTo:
+        validateSystemsPage(systemIds, allowNoSystems) && stepIdReached >= 4,
       enableNext: validateRulesPage(selectedRuleRefIds),
     },
     {
       id: 5,
       name: 'Review',
-      component: <ReviewCreatedPolicy osMajorVersion={osMajorVersion} />,
+      component: <ReviewCreatedPolicy />,
       nextButtonText: 'Finish',
       canJumpTo:
         validateRulesPage(selectedRuleRefIds) &&
-        systemIds?.length > 0 &&
+        validateSystemsPage(systemIds, allowNoSystems) &&
         stepIdReached >= 5,
     },
     {
@@ -90,13 +104,15 @@ export const CreatePolicyForm = ({
       name: 'Finished',
       component: <FinishedCreatePolicy onWizardFinish={onClose} />,
       isFinishedStep: true,
-      canJumpTo: systemIds?.length > 0 && stepIdReached >= 6,
+      canJumpTo:
+        validateSystemsPage(systemIds, allowNoSystems) && stepIdReached >= 6,
     },
   ];
 
   return (
     <React.Fragment>
       <Wizard
+        width={1300}
         className="compliance"
         isOpen
         onNext={onNext}
@@ -106,13 +122,14 @@ export const CreatePolicyForm = ({
         title="Create SCAP policy"
         description="Create a new policy for managing SCAP compliance"
         steps={steps}
+        id="create-scap-policy-wizard"
+        footer={<CreatePolicyFooter />}
       />
     </React.Fragment>
   );
 };
 
 CreatePolicyForm.propTypes = {
-  benchmark: propTypes.string,
   osMajorVersion: propTypes.string,
   osMinorVersionCounts: propTypes.arrayOf(
     propTypes.shape({
@@ -143,7 +160,6 @@ const CreatePolicy = reduxForm({
 
 const selector = formValueSelector('policyForm');
 export default connect((state) => ({
-  benchmark: selector(state, 'benchmark'),
   osMajorVersion: selector(state, 'osMajorVersion'),
   osMinorVersionCounts: selector(state, 'osMinorVersionCounts'),
   businessObjective: selector(state, 'businessObjective'),
