@@ -15,7 +15,7 @@ const isRemediatable = ({ compliant, remediationAvailable }) =>
 
 const getSupportedSystems = (systems = []) =>
   systems.filter(({ testResultProfiles }) =>
-    testResultProfiles.some(({ supported }) => supported)
+    testResultProfiles.some(({ supported }) => supported),
   );
 
 const getSystemIssues = (system) =>
@@ -25,9 +25,9 @@ const getSystemIssues = (system) =>
         profile.rules.filter(isRemediatable).map((rule) => ({
           ...rule,
           profile,
-        }))
-      )
-    )
+        })),
+      ),
+    ),
   );
 
 const appendSystemsIssues = (selectedRules) => (issues, system) => {
@@ -38,7 +38,7 @@ const appendSystemsIssues = (selectedRules) => (issues, system) => {
       ...rule,
       ...issues[rule.refId],
       systems: Array.from(
-        new Set([...(issues[rule.refId]?.systems || []), system.id])
+        new Set([...(issues[rule.refId]?.systems || []), system.id]),
       ),
     };
 
@@ -60,10 +60,20 @@ const getIssuesWithSystems = (systems, selectedRules) =>
 export const provideData = ({ systems, selectedRules } = {}) => {
   const supportedSystems = getSupportedSystems(systems);
   const issues = sortByPrecedence(
-    getIssuesWithSystems(supportedSystems, selectedRules)
+    getIssuesWithSystems(supportedSystems, selectedRules),
   ).map(formatRule);
 
   return {
     ...(issues.length > 0 ? { issues } : {}),
   };
+};
+
+export const remediationData = (results) => {
+  if (results) {
+    return provideData({
+      systems: results.reduce((acc, { edges }) => {
+        return [...acc, ...edges.map(({ node }) => node)];
+      }, []),
+    });
+  }
 };

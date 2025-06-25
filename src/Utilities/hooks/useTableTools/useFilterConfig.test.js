@@ -1,5 +1,4 @@
-import { render } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { render, renderHook } from '@testing-library/react';
 import filters from './__fixtures__/filters';
 import useFilterConfig from './useFilterConfig';
 
@@ -13,7 +12,7 @@ const FilterItemsMockComponent = ({ filters }) => {
 describe('useFilterConfig', () => {
   it('returns a filter config configuration', () => {
     const { result } = renderHook(() =>
-      useFilterConfig({ filters: { filterConfig: filters } })
+      useFilterConfig({ filters: { filterConfig: filters } }),
     );
     expect(result.current).toMatchSnapshot();
   });

@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Label,
   Text,
   TextVariants,
   TextContent,
@@ -23,10 +24,8 @@ const ReviewCreatedPolicy = ({
   <TextContent>
     <Text component={TextVariants.h1}>Review</Text>
     <Text>Review your SCAP policy before finishing.</Text>
-    <Text component={TextVariants.h3} style={{ marginTop: 0 }}>
-      {name}
-    </Text>
-    <TextList component={TextListVariants.dl}>
+    <Text component={TextVariants.h3}>{name}</Text>
+    <TextList component={TextListVariants.dl} className="pf-u-mt-md">
       <TextListItem component={TextListItemVariants.dt}>
         Policy type
       </TextListItem>
@@ -61,7 +60,9 @@ const ReviewCreatedPolicy = ({
                 RHEL {osMajorVersion}.{osMinorVersion}
               </TextListItem>
               <TextListItem component={TextListItemVariants.dd}>
-                {count} {count > 1 ? 'systems' : 'system'}
+                <Label color="grey" isCompact={true}>
+                  {count} {count > 1 ? 'systems' : 'system'}
+                </Label>
               </TextListItem>
             </React.Fragment>
           ))}
@@ -72,8 +73,6 @@ const ReviewCreatedPolicy = ({
 );
 
 ReviewCreatedPolicy.propTypes = {
-  benchmarkId: propTypes.string,
-  refId: propTypes.string,
   name: propTypes.string,
   businessObjective: propTypes.string,
   complianceThreshold: propTypes.number,
@@ -82,7 +81,7 @@ ReviewCreatedPolicy.propTypes = {
     propTypes.shape({
       osMinorVersion: propTypes.number,
       count: propTypes.number,
-    })
+    }),
   ),
   osMajorVersion: propTypes.string.isRequired,
 };
@@ -90,13 +89,11 @@ ReviewCreatedPolicy.propTypes = {
 const selector = formValueSelector('policyForm');
 
 export default connect((state) => ({
-  benchmarkId: selector(state, 'benchmark'),
-  refId: selector(state, 'refId'),
   name: selector(state, 'name'),
   businessObjective: selector(state, 'businessObjective'),
   osMinorVersionCounts: selector(state, 'osMinorVersionCounts'),
+  osMajorVersion: selector(state, 'osMajorVersion'),
   complianceThreshold:
     parseFloat(selector(state, 'complianceThreshold')) || 100.0,
-  parentProfileName: selector(state, 'profile').name,
-  rulesCount: selector(state, 'selectedRuleRefIds').length,
+  parentProfileName: selector(state, 'profile').title,
 }))(ReviewCreatedPolicy);
