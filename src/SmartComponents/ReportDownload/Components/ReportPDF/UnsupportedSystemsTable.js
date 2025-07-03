@@ -1,9 +1,9 @@
 import React from 'react';
 import propTypes from 'prop-types';
-// eslint-disable-next-line rulesdir/disallow-fec-relative-imports
-import { Table } from '@redhat-cloud-services/frontend-components-pdf-generator';
 
-const UnsupportedSystemsTable = ({ systems, ssgFinder }) => {
+import { Table } from '@redhat-cloud-services/frontend-components-pdf-generator/dist/esm/index';
+
+const UnsupportedSystemsTable = ({ systems }) => {
   const headerRow = [
     'System name',
     'OS',
@@ -11,10 +11,10 @@ const UnsupportedSystemsTable = ({ systems, ssgFinder }) => {
     'Expected SSG version',
   ];
   const rows = systems.map((system) => [
-    system.name,
-    `RHEL ${system.osMajorVersion}.${system.osMinorVersion}`,
-    system.testResultProfiles[0]?.benchmark.version,
-    ssgFinder(system.osMajorVersion, system.osMinorVersion),
+    system.display_name,
+    `RHEL ${system.os_major_version}.${system.os_minor_version}`,
+    system.security_guide_version,
+    system.expectedSsgVersion,
   ]);
 
   return <Table withHeader rows={[headerRow, ...rows]} />;
@@ -22,7 +22,6 @@ const UnsupportedSystemsTable = ({ systems, ssgFinder }) => {
 
 UnsupportedSystemsTable.propTypes = {
   systems: propTypes.array,
-  ssgFinder: propTypes.func,
 };
 
 export default UnsupportedSystemsTable;

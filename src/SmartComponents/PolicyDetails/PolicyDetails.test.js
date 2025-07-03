@@ -1,91 +1,84 @@
-import React from 'react';
-import { QUERY, PolicyDetails } from './PolicyDetails';
+import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import TestWrapper from '@/Utilities/TestWrapper';
+import PolicyDetails from '@/SmartComponents/PolicyDetails/PolicyDetails';
+import usePolicy from '../../Utilities/hooks/api/usePolicy';
+import { buildPolicies } from '../../__factories__/policies';
+import usePolicyOsVersionCounts from '../../Utilities/hooks/api/usePolicyOsVersionCounts';
 
-const mocks = [
-  {
-    request: {
-      query: QUERY,
-      variables: {
-        policyId: '1234',
-      },
-    },
-    result: {
-      data: {
-        profile: {
-          id: '1',
-          refId: '121212',
-          name: 'profile1',
-          description: 'profile description',
-          totalHostCount: 1,
-          complianceThreshold: 1,
-          compliantHostCount: 1,
-          osMajorVersion: '7',
-          hosts: [],
-          policy: {
-            name: 'parentpolicy',
-            profiles: [
-              {
-                id: '1',
-                refId: '121212',
-                name: 'profile1',
-                description: 'profile description',
-                osMinorVersion: '9',
-                businessObjective: {
-                  id: '1',
-                  title: 'BO 1',
-                },
-                benchmark: {
-                  title: 'benchmark',
-                  version: '0.1.5',
-                },
-              },
-            ],
-          },
-          businessObjective: {
-            id: '1',
-            title: 'BO 1',
-          },
-          benchmark: {
-            title: 'benchmark',
-            version: '0.1.5',
-          },
-        },
-      },
-    },
-  },
-];
-
-jest.mock('react-redux', () => ({
-  ...jest.requireActual('react-redux'),
-  useDispatch: jest.fn(() => ({})),
-}));
-
-jest.mock('@apollo/client', () => ({
-  ...jest.requireActual('@apollo/client'),
-  useQuery: () => ({
-    data: mocks[0].result.data,
-    error: undefined,
-    loading: undefined,
-  }),
-}));
-
+jest.mock('../../Utilities/hooks/useDocumentTitle');
+jest.mock('../../PresentationalComponents/Tailorings/Tailorings');
+jest.mock('../../Utilities/hooks/api/usePolicy');
+jest.mock('./PolicySystemsTab');
+jest.mock(
+  '../../PresentationalComponents/PolicyDetailsDescription/PolicyDetailsDescription',
+);
+jest.mock('../../Utilities/hooks/api/usePolicyOsVersionCounts');
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
-    useParams: jest.fn().mockReturnValue({ policy_id: '1' }), // eslint-disable-line
-  useLocation: jest.fn(() => ({
-    hash: '',
-  })),
-}));
-
-jest.mock('Utilities/hooks/useDocumentTitle', () => ({
-  useTitleEntity: () => ({}),
-  setTitle: () => ({}),
+  useParams: () => ({ policy_id: 'some-policy-id' }),
 }));
 
 describe('PolicyDetails', () => {
-  it('expect to render without error', () => {
-    const wrapper = shallow(<PolicyDetails />);
+  const fixturePolicy = buildPolicies(1)[0];
 
-    expect(toJson(wrapper)).toMatchSnapshot();
+  it('renders without error', () => {
+    usePolicy.mockReturnValue({
+      data: {
+        data: fixturePolicy,
+      },
+      loading: false,
+    });
+    render(
+      <TestWrapper>
+        <PolicyDetails />
+      </TestWrapper>,
+    );
+
+    screen.getByRole('heading', {
+      name: fixturePolicy.title,
+    });
+    screen.getByRole('tab', {
+      name: /details/i,
+    });
+    screen.getByRole('tab', {
+      name: /rules/i,
+    });
+    screen.getByRole('tab', {
+      name: /systems/i,
+    });
+  });
+
+  it('renders with error', () => {
+    usePolicy.mockReturnValue({
+      data: undefined,
+      loading: false,
+      error: 'Error',
+    });
+    render(
+      <TestWrapper>
+        <PolicyDetails />
+      </TestWrapper>,
+    );
+
+    screen.getByRole('heading', {
+      name: /something went wrong/i,
+    });
+  });
+
+  it('calls for system counts', () => {
+    usePolicy.mockReturnValue({
+      data: {
+        data: fixturePolicy,
+      },
+      loading: false,
+    });
+    render(
+      <TestWrapper>
+        <PolicyDetails />
+      </TestWrapper>,
+    );
+
+    expect(usePolicyOsVersionCounts).toBeCalledWith('some-policy-id');
   });
 });

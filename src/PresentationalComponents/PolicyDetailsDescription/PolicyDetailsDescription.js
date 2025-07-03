@@ -13,10 +13,10 @@ import {
 import linkifyHtml from 'linkifyjs/html';
 import EditPolicyDetailsInline from '../../SmartComponents/EditPolicyDetails/EditPolicyDetailsInline';
 
-const PolicyDetailsDescription = ({ policy }) => {
+const PolicyDetailsDescription = ({ policy, refetch }) => {
   const thresholdText = `${fixedPercentage(
     policy.complianceThreshold,
-    1
+    1,
   )} of rules must be
   passed for a system to be labeled "Compliant"`;
   const businessText =
@@ -35,6 +35,7 @@ const PolicyDetailsDescription = ({ policy }) => {
           <Text>
             <EditPolicyDetailsInline
               policy={policy}
+              refetch={refetch}
               text={policy.complianceThreshold}
               variant="threshold"
               inlineClosedText={thresholdText}
@@ -43,7 +44,7 @@ const PolicyDetailsDescription = ({ policy }) => {
               textUnderInline="A value of 95% or higher is recommended"
               propertyName="complianceThreshold"
               type="number"
-              className="pf-c-form-control pf-u-w-100-on-lg"
+              className="pf-v5-c-form-control pf-v5-u-w-100-on-lg"
               aria-label="editable text input"
               id="policydetails-input-threshold"
             />
@@ -51,6 +52,7 @@ const PolicyDetailsDescription = ({ policy }) => {
           <Text>
             <EditPolicyDetailsInline
               policy={policy}
+              refetch={refetch}
               text={businessText}
               variant="business"
               inlineClosedText={businessText}
@@ -61,14 +63,18 @@ const PolicyDetailsDescription = ({ policy }) => {
           </Text>
           <Text>
             <EditPolicyDetailsInline
-              component={TextArea}
               policy={policy}
+              refetch={refetch}
+              Component={TextArea}
               text={descriptionText}
               variant="description"
-              inlineClosedText={businessText}
+              inlineClosedText={descriptionText}
               label="Policy description"
               propertyName="description"
-              className="pf-c-form-control pf-u-w-100-on-lg"
+              className="pf-v5-c-form-control"
+              style={{
+                minWidth: '50%',
+              }}
             />
           </Text>
           <Text component={TextVariants.h5}>Operating system</Text>
@@ -84,6 +90,7 @@ const PolicyDetailsDescription = ({ policy }) => {
 };
 PolicyDetailsDescription.propTypes = {
   policy: propTypes.object,
+  refetch: propTypes.func,
 };
 
 export default PolicyDetailsDescription;

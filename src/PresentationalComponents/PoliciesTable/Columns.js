@@ -1,94 +1,87 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import { TextContent } from '@patternfly/react-core';
-import { fitContent } from '@patternfly/react-table';
 import { LinkWithPermission as Link } from 'PresentationalComponents';
 import { GreySmallText, SystemsCountWarning } from 'PresentationalComponents';
 import { renderComponent } from 'Utilities/helpers';
 
-const PolicyNameCell = ({ id, policy, policyType }) => (
+const PolicyNameCell = ({ id, title, profile_title }) => (
   <TextContent>
-    <Link to={'/scappolicies/' + id}>{policy.name}</Link>
-    <GreySmallText>{policyType}</GreySmallText>
+    <Link to={'/scappolicies/' + id}>{title}</Link>
+    <GreySmallText>{profile_title}</GreySmallText>
   </TextContent>
 );
 
 PolicyNameCell.propTypes = {
   id: propTypes.string,
-  policy: propTypes.object,
-  policyType: propTypes.string,
+  title: propTypes.string,
+  profile_title: propTypes.string,
 };
 
 export const Name = {
   title: 'Name',
   props: {
-    width: 45,
+    width: 25,
   },
-  sortByProp: 'name',
-  renderExport: (policy) => policy.name,
+  sortable: 'title',
+  renderExport: (policy) => policy.title,
   renderFunc: renderComponent(PolicyNameCell),
 };
 
-const PolicyType = {
-  title: 'Policy Type',
-  renderExport: (policy) => policy.policyType,
+export const Description = {
+  title: 'Description',
+  renderExport: (policy) => policy.description,
+  hiddenByDefault: true,
+  isShown: false,
 };
 
-const osString = (policy) => `RHEL ${policy.osMajorVersion}`;
+const osString = (policy) => `RHEL ${policy.os_major_version}`;
 
 export const OperatingSystem = {
   title: 'Operating system',
-  transforms: [fitContent],
-  props: {
-    width: 15,
-  },
-  sortByProp: 'osMajorVersion',
+  sortable: 'os_major_version',
   renderExport: osString,
   renderFunc: (_data, _id, policy) => osString(policy),
 };
 
 export const Systems = {
   title: 'Systems',
-  props: {
-    width: 15,
-  },
-  sortByProp: 'totalHostCount',
-  renderExport: (policy) => policy.totalHostCount,
-  // eslint-disable-next-line react/display-name
+  sortable: 'total_system_count',
+  renderExport: (policy) => policy.total_system_count,
+
   renderFunc: (_data, _id, policy) =>
-    policy.totalHostCount > 0 ? (
-      policy.totalHostCount
+    policy.total_system_count > 0 ? (
+      policy.total_system_count
     ) : (
-      <SystemsCountWarning count={policy.totalHostCount} variant="count" />
+      <SystemsCountWarning count={policy.total_system_count} variant="count" />
     ),
 };
 
-const businessObjectiveString = (policy) =>
-  (policy.businessObjective && policy.businessObjective.title) || '--';
+const businessObjectiveString = (policy) => policy.business_objective ?? '--';
 
 export const BusinessObjective = {
   title: 'Business objective',
-  sortByFunction: (policy) => policy?.businessObjective?.title,
+  sortable: 'business_objective',
   renderExport: businessObjectiveString,
   renderFunc: (_data, _id, policy) => businessObjectiveString(policy),
 };
 
-const complianceThresholdString = (policy) => `${policy.complianceThreshold}%`;
+const complianceThresholdString = (policy) => `${policy.compliance_threshold}%`;
 
 export const ComplianceThreshold = {
   title: 'Compliance threshold',
-  sortByProp: 'complianceThreshold',
+  sortable: 'compliance_threshold',
   renderExport: complianceThresholdString,
   renderFunc: (_data, _id, policy) => complianceThresholdString(policy),
 };
 
 export const exportableColumns = [
   Name,
-  PolicyType,
   OperatingSystem,
   Systems,
   BusinessObjective,
   ComplianceThreshold,
+  Description,
 ];
 
 export default [
@@ -97,4 +90,5 @@ export default [
   Systems,
   BusinessObjective,
   ComplianceThreshold,
+  Description,
 ];

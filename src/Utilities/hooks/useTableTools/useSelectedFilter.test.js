@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react-hooks';
+import { renderHook } from '@testing-library/react';
 import useSelectedFilter from './useSelectedFilter';
 
 describe('useSelectedFilter', () => {
@@ -8,7 +8,7 @@ describe('useSelectedFilter', () => {
         addFilterConfigItem: () => ({}),
         setActiveFilter: () => ({}),
         activeFilters: [],
-      })
+      }),
     );
     expect(result).toMatchSnapshot();
   });
