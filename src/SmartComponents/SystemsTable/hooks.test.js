@@ -1,20 +1,44 @@
-import { act, renderHook } from '@testing-library/react-hooks';
-import { useApolloClient } from '@apollo/client';
+import { act, renderHook } from '@testing-library/react';
 import { useGetEntities, useSystemsFilter, useSystemsExport } from './hooks';
 
-jest.mock('Utilities/Dispatcher');
-jest.mock('@apollo/client', () => ({
-  useApolloClient: jest.fn(() => ({
-    query: () => Promise.resolve([]),
-  })),
+jest.mock('@/Utilities/hooks/useQuery', () => ({
+  __esModule: true,
+  ...jest.requireActual('@/Utilities/hooks/useQuery'),
+  apiInstance: { systemsOS: jest.fn(() => Promise.resolve([])) },
 }));
 
 describe('useSystemsFilter', () => {
   it('returns a filter string', () => {
     const { result } = renderHook(() =>
-      useSystemsFilter('name = "Name"', true, 'default = "filter"')
+      useSystemsFilter('name = "Name"', true, 'default = "filter"'),
     );
-    expect(result.current).toMatchSnapshot();
+    expect(result.current).toEqual(
+      '(default = "filter") and (has_test_results = true and name = "Name")',
+    );
+  });
+
+  it('returns a filter string without default filter', () => {
+    const { result } = renderHook(() =>
+      useSystemsFilter('name = "Name"', true),
+    );
+    expect(result.current).toEqual('has_test_results = true and name = "Name"');
+  });
+
+  it('returns a filter string without test result filter', () => {
+    const { result } = renderHook(() =>
+      useSystemsFilter('name = "Name"', false),
+    );
+    expect(result.current).toEqual('name = "Name"');
+  });
+
+  it('returns an empty string without any filter passed and results disabled', () => {
+    const { result } = renderHook(() => useSystemsFilter('', false));
+    expect(result.current).toEqual('');
+  });
+
+  it('returns only the result filter string with only the results filter enabled', () => {
+    const { result } = renderHook(() => useSystemsFilter('', true));
+    expect(result.current).toEqual('has_test_results = true');
   });
 });
 
@@ -41,7 +65,7 @@ describe('useSystemsExport', () => {
       useSystemsExport({
         ...defaultOptions,
         total: 0,
-      })
+      }),
     );
 
     expect(result.current).toMatchSnapshot();
@@ -52,30 +76,23 @@ describe('useSystemsExport', () => {
       useSystemsExport({
         ...defaultOptions,
         selected: [1],
-      })
+      }),
     );
 
     expect(result.current).toMatchSnapshot();
   });
 
-  it('returns a export with isDisabled true on total 0 ', () => {
-    const apolloClient = jest.fn(() => ({
-      query: () => Promise.resolve([]),
-    }));
-    useApolloClient.mockImplementation(apolloClient);
-
+  it('returns a export with isDisabled true on total 0 ', async () => {
     const { result } = renderHook(() =>
       useSystemsExport({
         ...defaultOptions,
         selected: [1],
-      })
+      }),
     );
 
-    act(() => {
-      result.current.onSelect();
+    await act(async () => {
+      await result.current.onSelect();
     });
-
-    expect(apolloClient).toHaveBeenCalled();
   });
 });
 
@@ -84,7 +101,7 @@ describe('useGetEntities', () => {
     Promise.resolve({
       entities: [{ id: 1, name: 'TEST ENTITY NAME' }],
       meta: { totalCount: 0 },
-    })
+    }),
   );
 
   it('returns a getEntities function', () => {
@@ -111,12 +128,102 @@ describe('useGetEntities', () => {
           },
         ],
         selected: [{ id: 1 }],
-      })
+      }),
     );
-    // eslint-disable-next-line
-    const fetchResult = await result.current([], { per_page: 10, orderBy: 'name', orderDirection: 'ASC' })
+
+    await result.current([], {
+      per_page: 10,
+      orderBy: 'name',
+      orderDirection: 'ASC',
+    });
     expect(mockFetch).toHaveBeenCalledWith(10, 1, {
-      filters: undefined,
+      filter: null,
+      sortBy: ['nameAttribute:ASC'],
+    });
+  });
+
+  it('group filter is handled properly', async () => {
+    const { result } = renderHook(() =>
+      useGetEntities(mockFetch, {
+        columns: [
+          {
+            title: 'Name',
+            key: 'name',
+            sortBy: ['nameAttribute'],
+          },
+        ],
+        selected: [{ id: 1 }],
+      }),
+    );
+    await result.current([], {
+      per_page: 10,
+      orderBy: 'name',
+      orderDirection: 'ASC',
+      filters: {
+        hostGroupFilter: ['test-group'],
+      },
+    });
+    expect(mockFetch).toHaveBeenCalledWith(10, 1, {
+      filter: '(group_name = "test-group")',
+      sortBy: ['nameAttribute:ASC'],
+    });
+  });
+
+  it('os filter is handled properly', async () => {
+    const { result } = renderHook(() =>
+      useGetEntities(mockFetch, {
+        columns: [
+          {
+            title: 'Name',
+            key: 'name',
+            sortBy: ['nameAttribute'],
+          },
+        ],
+        selected: [{ id: 1 }],
+      }),
+    );
+    await result.current([], {
+      per_page: 10,
+      orderBy: 'name',
+      orderDirection: 'ASC',
+      filters: {
+        osFilter: {
+          'RHEL-8': { 'RHEL-8': null, 'RHEL-8-8.4': true },
+        },
+      },
+    });
+    expect(mockFetch).toHaveBeenCalledWith(10, 1, {
+      filter: 'os_version ^ (8.4)',
+      sortBy: ['nameAttribute:ASC'],
+    });
+  });
+
+  it('Joins inventory filter AND operator', async () => {
+    const { result } = renderHook(() =>
+      useGetEntities(mockFetch, {
+        columns: [
+          {
+            title: 'Name',
+            key: 'name',
+            sortBy: ['nameAttribute'],
+          },
+        ],
+        selected: [{ id: 1 }],
+      }),
+    );
+    await result.current([], {
+      per_page: 10,
+      orderBy: 'name',
+      orderDirection: 'ASC',
+      filters: {
+        hostGroupFilter: ['test-group'],
+        osFilter: {
+          'RHEL-8': { 'RHEL-8': null, 'RHEL-8-8.4': true },
+        },
+      },
+    });
+    expect(mockFetch).toHaveBeenCalledWith(10, 1, {
+      filter: '(group_name = "test-group") AND os_version ^ (8.4)',
       sortBy: ['nameAttribute:ASC'],
     });
   });

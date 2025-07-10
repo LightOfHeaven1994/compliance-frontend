@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   propTypes as reduxFormPropTypes,
   reduxForm,
@@ -8,38 +8,40 @@ import {
   Button,
   Form,
   FormGroup,
-  Text,
-  TextContent,
-  TextVariants,
-  WizardContextConsumer,
+  Content,
+  ContentVariants,
 } from '@patternfly/react-core';
+import { WizardContextConsumer } from '@patternfly/react-core/deprecated';
 import { SystemsTable } from 'SmartComponents';
 import { compose } from 'redux';
 import propTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { countOsMinorVersions } from 'Store/Reducers/SystemStore';
 import * as Columns from '../SystemsTable/Columns';
+import { apiInstance } from '@/Utilities/hooks/useQuery';
+import { buildOSObject } from '../../Utilities/helpers';
+import { fetchSystemsApi } from 'SmartComponents/SystemsTable/constants';
 
 const EmptyState = ({ osMajorVersion }) => (
   <React.Fragment>
-    <TextContent className="pf-u-mb-md">
-      <Text>
+    <Content className="pf-v6-u-mb-md">
+      <Content component="p">
         You do not have any <b>RHEL {osMajorVersion}</b> systems connected to
         Insights and enabled for Compliance.
         <br />
         Policies must be created with at least one system.
-      </Text>
-    </TextContent>
-    <TextContent className="pf-u-mb-md">
-      <Text>
-        Choose a different operating system, or connect{' '}
-        <b>RHEL {osMajorVersion}</b> systems to Insights.
-      </Text>
-    </TextContent>
+      </Content>
+    </Content>
+    <Content className="pf-v6-u-mb-md">
+      <Content component="p">
+        Choose a different RHEL version, or connect <b>RHEL {osMajorVersion}</b>{' '}
+        systems to Insights.
+      </Content>
+    </Content>
     <WizardContextConsumer>
       {({ goToStepById }) => (
         <Button onClick={() => goToStepById(1)}>
-          Choose a different operating system
+          Choose a different RHEL version
         </Button>
       )}
     </WizardContextConsumer>
@@ -52,14 +54,14 @@ EmptyState.propTypes = {
 
 const PrependComponent = ({ osMajorVersion }) => (
   <React.Fragment>
-    <TextContent className="pf-u-mb-md">
-      <Text>
+    <Content className="pf-v6-u-mb-md">
+      <Content component="p">
         Select which of your <b>RHEL {osMajorVersion}</b> systems should be
         included in this policy.
         <br />
         Systems can be added or removed at any time.
-      </Text>
-    </TextContent>
+      </Content>
+    </Content>
   </React.Fragment>
 );
 
@@ -67,30 +69,70 @@ PrependComponent.propTypes = {
   osMajorVersion: propTypes.string,
 };
 
+const useOnSelect = (change, countOsMinorVersions) => {
+  const onSelect = useCallback(
+    (newSelectedSystems) => {
+      change('systems', newSelectedSystems);
+      change('osMinorVersionCounts', countOsMinorVersions(newSelectedSystems));
+    },
+    [change, countOsMinorVersions],
+  );
+
+  return onSelect;
+};
+
 export const EditPolicySystems = ({
-  policy,
+  profile,
   change,
   osMajorVersion,
-  selectedSystems,
+  osMinorVersionCounts,
+  selectedSystems = [],
+  allowNoSystems,
 }) => {
-  const onSystemSelect = (newSelectedSystems) => {
-    change('systems', newSelectedSystems);
-    change('osMinorVersionCounts', countOsMinorVersions(newSelectedSystems));
-  };
-  const osMinorVersions = policy.supportedOsVersions.map(
-    (version) => version.split('.')[1]
+  const onSelect = useOnSelect(change, countOsMinorVersions);
+  const osMinorVersions = profile.supportedOsVersions.map(
+    (version) => version.split('.')[1],
   );
+
+  const defaultFilter = osMajorVersion
+    ? `os_major_version = ${osMajorVersion} AND ` +
+      `os_minor_version ^ (${osMinorVersions.join(' ')}) AND ` +
+      `profile_ref_id !^ (${profile.ref_id})`
+    : '';
+
+  const fetchCustomOSes = ({ filters: defaultFilter }) =>
+    apiInstance.systemsOS(null, defaultFilter).then(({ data }) => {
+      return {
+        results: buildOSObject(data),
+        total: data?.length || 0,
+      };
+    });
+
+  useEffect(() => {
+    if (!osMinorVersionCounts || !osMinorVersionCounts.length) {
+      change(
+        'osMinorVersionCounts',
+        profile.supportedOsVersions.map((version) => ({
+          osMinorVersion: version.split('.')[1],
+          count: 0,
+        })),
+      );
+    }
+  }, [profile, osMinorVersionCounts, change]);
+
   return (
     <React.Fragment>
-      <TextContent className="pf-u-mb-md">
-        <Text component={TextVariants.h1}>Systems</Text>
-      </TextContent>
+      <Content className="pf-v6-u-mb-md">
+        <Content component={ContentVariants.h1}>Systems</Content>
+      </Content>
       <Form>
         <FormGroup>
           <SystemsTable
             showOsMinorVersionFilter={[osMajorVersion]}
             prependComponent={
-              <PrependComponent osMajorVersion={osMajorVersion} />
+              allowNoSystems ? undefined : (
+                <PrependComponent osMajorVersion={osMajorVersion} />
+              )
             }
             emptyStateComponent={<EmptyState osMajorVersion={osMajorVersion} />}
             columns={[
@@ -99,23 +141,25 @@ export const EditPolicySystems = ({
                 props: {
                   width: 40,
                 },
-                sortBy: ['name'],
+                sortBy: ['display_name'],
               },
+              Columns.inventoryColumn('groups', {
+                requiresDefault: true,
+                sortBy: ['groups'],
+              }),
               Columns.inventoryColumn('tags'),
-              Columns.OperatingSystem,
+              Columns.OperatingSystem(),
             ]}
             remediationsEnabled={false}
             compact
             showActions={false}
-            defaultFilter={
-              osMajorVersion &&
-              `os_major_version = ${osMajorVersion} AND os_minor_version ^ (${osMinorVersions.join(
-                ','
-              )})`
-            }
+            defaultFilter={defaultFilter}
             enableExport={false}
-            preselectedSystems={selectedSystems}
-            onSelect={onSystemSelect}
+            preselectedSystems={selectedSystems.map(({ id }) => id)}
+            onSelect={onSelect}
+            showGroupsFilter
+            fetchApi={fetchSystemsApi}
+            fetchCustomOSes={fetchCustomOSes}
           />
         </FormGroup>
       </Form>
@@ -125,19 +169,18 @@ export const EditPolicySystems = ({
 
 EditPolicySystems.propTypes = {
   osMajorVersion: propTypes.string,
-  policy: propTypes.object,
+  profile: propTypes.object,
+  osMinorVersionCounts: propTypes.array,
   selectedSystems: propTypes.array,
   change: reduxFormPropTypes.change,
-};
-
-EditPolicySystems.defaultProps = {
-  selectedSystems: [],
+  allowNoSystems: propTypes.bool,
 };
 
 const selector = formValueSelector('policyForm');
 const mapStateToProps = (state) => ({
-  policy: selector(state, 'profile'),
+  profile: selector(state, 'profile'),
   osMajorVersion: selector(state, 'osMajorVersion'),
+  osMinorVersionCounts: selector(state, 'osMinorVersionCounts'),
   selectedSystems: selector(state, 'systems'),
 });
 
@@ -147,5 +190,5 @@ export default compose(
     form: 'policyForm',
     destroyOnUnmount: false,
     forceUnregisterOnUnmount: true,
-  })
+  }),
 )(EditPolicySystems);

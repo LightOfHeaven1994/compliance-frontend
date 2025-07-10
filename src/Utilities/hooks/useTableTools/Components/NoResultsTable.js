@@ -1,28 +1,22 @@
 import React from 'react';
 import propTypes from 'prop-types';
 import {
-  Bullseye,
   EmptyState,
   EmptyStateBody,
   EmptyStateVariant,
-  Title,
 } from '@patternfly/react-core';
-import EmptyTable from '@redhat-cloud-services/frontend-components/EmptyTable';
 
 export const NoResultsTable = ({ kind = 'results' }) => (
-  <EmptyTable>
-    <Bullseye>
-      <EmptyState variant={EmptyStateVariant.full}>
-        <Title headingLevel="h5" size="lg">
-          No matching {kind} found
-        </Title>
-        <EmptyStateBody>
-          This filter criteria matches no {kind}.<br />
-          Try changing your filter settings.
-        </EmptyStateBody>
-      </EmptyState>
-    </Bullseye>
-  </EmptyTable>
+  <EmptyState
+    headingLevel="h5"
+    titleText={<>No matching {kind} found</>}
+    variant={EmptyStateVariant.full}
+  >
+    <EmptyStateBody>
+      This filter criteria matches no {kind}.<br />
+      Try changing your filter settings.
+    </EmptyStateBody>
+  </EmptyState>
 );
 
 NoResultsTable.propTypes = {
@@ -33,7 +27,7 @@ export const emptyRows = (kind, colSpan) => [
   {
     cells: [
       {
-        title: () => <NoResultsTable kind={kind} />, // eslint-disable-line react/display-name
+        title: () => <NoResultsTable kind={kind} />,
         props: {
           colSpan,
         },

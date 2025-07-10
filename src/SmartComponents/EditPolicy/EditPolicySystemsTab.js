@@ -1,21 +1,27 @@
 import React from 'react';
-import { Text, TextContent } from '@patternfly/react-core';
+import { Content } from '@patternfly/react-core';
 import propTypes from 'prop-types';
 import { SystemsTable } from 'SmartComponents';
 import * as Columns from '../SystemsTable/Columns';
+import {
+  fetchSystemsApi,
+  fetchCustomOSes,
+} from 'SmartComponents/SystemsTable/constants';
 
 const EmptyState = ({ osMajorVersion }) => (
-  <React.Fragment>
-    <TextContent className="pf-u-mb-md">
-      <Text>
+  <div data-testid="empty-state">
+    <Content className="pf-v6-u-mb-md">
+      <Content component="p">
         You do not have any <b>RHEL {osMajorVersion}</b> systems connected to
         Insights and enabled for Compliance.
-      </Text>
-    </TextContent>
-    <TextContent className="pf-u-mb-md">
-      <Text>Connect RHEL {osMajorVersion} systems to Insights.</Text>
-    </TextContent>
-  </React.Fragment>
+      </Content>
+    </Content>
+    <Content className="pf-v6-u-mb-md">
+      <Content component="p">
+        Connect RHEL {osMajorVersion} systems to Insights.
+      </Content>
+    </Content>
+  </div>
 );
 
 EmptyState.propTypes = {
@@ -24,12 +30,12 @@ EmptyState.propTypes = {
 
 const PrependComponent = ({ osMajorVersion }) => (
   <React.Fragment>
-    <TextContent className="pf-u-mb-md">
-      <Text>
+    <Content className="pf-v6-u-mb-md" data-testid="prepend-component">
+      <Content component="p">
         Select which of your <b>RHEL {osMajorVersion}</b> systems should be
         included in this policy.
-      </Text>
-    </TextContent>
+      </Content>
+    </Content>
   </React.Fragment>
 );
 
@@ -37,40 +43,42 @@ PrependComponent.propTypes = {
   osMajorVersion: propTypes.string,
 };
 
-const EditPolicySystemsTab = ({ policy, onSystemSelect, selectedSystems }) => {
-  const { id: policyId, osMajorVersion, supportedOsVersions } = policy;
-  const osMinorVersions = supportedOsVersions.map(
-    (version) => version.split('.')[1]
-  );
-  const osFilter =
-    osMajorVersion &&
-    `os_major_version = ${osMajorVersion} AND os_minor_version ^ (${osMinorVersions.join(
-      ','
+const EditPolicySystemsTab = ({
+  policy,
+  onSystemSelect,
+  selectedSystems,
+  supportedOsVersions,
+  setIsSystemsDataLoading,
+}) => {
+  const { os_major_version } = policy;
+
+  const defaultFilter =
+    os_major_version &&
+    `os_major_version = ${os_major_version} AND os_minor_version ^ (${supportedOsVersions.join(
+      ' ',
     )})`;
-  const defaultFilter = osFilter
-    ? `${osFilter} or policy_id = ${policyId}`
-    : `policy_id = ${policyId}`;
 
   return (
-    <React.Fragment>
-      <SystemsTable
-        columns={[
-          Columns.Name,
-          Columns.inventoryColumn('tags'),
-          Columns.OperatingSystem,
-        ]}
-        showOsMinorVersionFilter={[osMajorVersion]}
-        prependComponent={<PrependComponent osMajorVersion={osMajorVersion} />}
-        emptyStateComponent={<EmptyState osMajorVersion={osMajorVersion} />}
-        compact
-        showActions={false}
-        defaultFilter={defaultFilter}
-        enableExport={false}
-        remediationsEnabled={false}
-        preselectedSystems={selectedSystems}
-        onSelect={onSystemSelect}
-      />
-    </React.Fragment>
+    <SystemsTable
+      columns={[
+        Columns.Name,
+        Columns.inventoryColumn('tags'),
+        Columns.OperatingSystem(),
+      ]}
+      showOsMinorVersionFilter={[os_major_version]}
+      prependComponent={<PrependComponent osMajorVersion={os_major_version} />}
+      emptyStateComponent={<EmptyState osMajorVersion={os_major_version} />}
+      compact
+      showActions={false}
+      defaultFilter={defaultFilter}
+      enableExport={false}
+      remediationsEnabled={false}
+      preselectedSystems={selectedSystems}
+      onSelect={onSystemSelect}
+      fetchApi={fetchSystemsApi}
+      fetchCustomOSes={fetchCustomOSes}
+      setIsSystemsDataLoading={setIsSystemsDataLoading}
+    />
   );
 };
 
@@ -79,6 +87,8 @@ EditPolicySystemsTab.propTypes = {
   newRuleTabs: propTypes.bool,
   onSystemSelect: propTypes.func,
   selectedSystems: propTypes.array,
+  supportedOsVersions: propTypes.array,
+  setIsSystemsDataLoading: propTypes.func,
 };
 
 export default EditPolicySystemsTab;

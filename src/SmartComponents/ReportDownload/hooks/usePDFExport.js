@@ -1,37 +1,36 @@
-import { dispatchNotification } from 'Utilities/Dispatcher';
+import { useAddNotification } from '@redhat-cloud-services/frontend-components-notifications/hooks';
 import useQueryExportData from './useQueryExportData';
 import usePDFBuilder from './usePDFBuilder';
-import useSupportedSsgFinder from './useSupportedSsgFinder';
 
 // Hook to provide a function that fetches the necessary data to export
 // and compile it into pages for the pdf-generator DownloadButton
-const usePDFExport = (exportSettings, policy) => {
-  const ssgFinder = useSupportedSsgFinder();
-  const queryExportData = useQueryExportData(exportSettings, policy, {
+const usePDFExport = (exportSettings, report) => {
+  const addNotification = useAddNotification();
+  const queryExportData = useQueryExportData(exportSettings, report, {
     onError: () => {
-      dispatchNotification({
+      addNotification({
         variant: 'danger',
         title: 'Couldn’t download export',
         description: 'Reinitiate this export to try again.',
       });
     },
     onComplete: () => {
-      dispatchNotification({
+      addNotification({
         variant: 'success',
         title: 'Downloading export',
       });
     },
   });
-  const buildPDFPages = usePDFBuilder(policy);
+  const buildPDFPages = usePDFBuilder(report);
 
   const exportPDF = async () => {
-    dispatchNotification({
+    addNotification({
       variant: 'info',
       title: 'Preparing export',
       description: 'Once complete, your download will start automatically.',
     });
     const data = await queryExportData();
-    return await buildPDFPages(data, ssgFinder);
+    return await buildPDFPages(data);
   };
 
   return exportPDF;
