@@ -11,9 +11,8 @@ import propTypes from 'prop-types';
 import {
   Form,
   FormGroup,
-  Text,
-  TextContent,
-  TextVariants,
+  Content,
+  ContentVariants,
 } from '@patternfly/react-core';
 import {
   ReduxFormTextInput,
@@ -24,20 +23,20 @@ import {
   PolicyBusinessObjectiveTooltip,
 } from 'PresentationalComponents';
 
-export const EditPolicyDetails = ({ change, policy, refId }) => {
+export const EditPolicyDetails = ({ change, profile, refId }) => {
   useEffect(() => {
-    if (policy && policy.refId !== refId) {
-      change('name', `${policy.name}`);
-      change('refId', `${policy.refId}`);
-      change('description', `${policy.description}`);
+    if (profile && profile.ref_id !== refId) {
+      change('name', `${profile.title}`);
+      change('refId', `${profile.ref_id}`);
+      change('description', `${profile.description}`);
     }
-  }, [policy]);
+  }, [profile]);
 
   return (
     <React.Fragment>
-      <TextContent>
-        <Text component={TextVariants.h1}>Details</Text>
-      </TextContent>
+      <Content>
+        <Content component={ContentVariants.h1}>Details</Content>
+      </Content>
       <br />
       <Form id="editpolicydetails">
         <FormGroup label="Policy name" isRequired fieldId="name">
@@ -71,7 +70,7 @@ export const EditPolicyDetails = ({ change, policy, refId }) => {
         </FormGroup>
         <FormGroup
           label="Business objective"
-          labelIcon={<PolicyBusinessObjectiveTooltip />}
+          labelHelp={<PolicyBusinessObjectiveTooltip />}
           fieldId="businessObjective"
         >
           <Field
@@ -80,7 +79,7 @@ export const EditPolicyDetails = ({ change, policy, refId }) => {
             id="businessObjective"
             name="businessObjective"
             aria-describedby="businessObjective"
-            defaultValue={policy.businessObjective}
+            defaultValue={profile.business_objective}
           />
         </FormGroup>
         <ProfileThresholdField previousThreshold={100} />
@@ -92,20 +91,20 @@ export const EditPolicyDetails = ({ change, policy, refId }) => {
 const selector = formValueSelector('policyForm');
 
 EditPolicyDetails.propTypes = {
-  policy: propTypes.object,
+  profile: propTypes.object,
   refId: propTypes.string,
   change: reduxFormPropTypes.change,
 };
 
 const mapStateToProps = (state) => {
-  const policy = selector(state, 'profile');
+  const profile = selector(state, 'profile');
   return {
-    policy,
+    profile,
     refId: selector(state, 'refId'),
     initialValues: {
-      name: `${policy.name}`,
-      refId: `${policy.refId}`,
-      description: `${policy.description}`,
+      name: `${profile.title}`,
+      refId: `${profile.ref_id}`,
+      description: `${profile.description}`,
       benchmark: selector(state, 'benchmark'),
       osMajorVersion: selector(state, 'osMajorVersion'),
       profile: selector(state, 'profile'),
@@ -119,5 +118,5 @@ export default compose(
     form: 'policyForm',
     destroyOnUnmount: false,
     forceUnregisterOnUnmount: true,
-  })
+  }),
 )(EditPolicyDetails);

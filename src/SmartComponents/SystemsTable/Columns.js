@@ -1,21 +1,21 @@
+/* eslint-disable testing-library/render-result-naming-convention */
 import React from 'react';
 import { nowrap } from '@patternfly/react-table';
 import { Tooltip } from '@patternfly/react-core';
 import { complianceScoreString } from 'PresentationalComponents';
-import { profilesRulesFailed } from 'Utilities/ruleHelpers';
 import { renderComponent } from 'Utilities/helpers';
 
 import {
   Name as NameCell,
   ComplianceScore as ComplianceScoreCell,
-  FailedRules as FailedRulesCell,
   LastScanned as LastScannedCell,
   Policies as PoliciesCell,
   SSGVersions as SsgVersionCell,
-  complianceScoreData,
   lastScanned,
   operatingSystemString,
   OperatingSystem as OperatingSystemCell,
+  CustomDisplay as CustomDisplayCell,
+  FailedRules as FailedRulesCell,
 } from './Cells';
 
 const disableSorting = { isStatic: true };
@@ -45,30 +45,43 @@ export const Name = compileColumnRenderFunc({
   cell: NameCell,
 });
 
-export const customName = (props) => ({
+export const customDisplay = (props, columnConfig) => ({
+  ...Name,
+  ...props,
+  props: {
+    ...Name.props,
+    ...props,
+  },
+  renderFunc: renderComponent(CustomDisplayCell, props),
+  ...columnConfig,
+});
+
+export const customName = (props, columnConfig) => ({
   ...Name,
   props: {
     ...Name.props,
     ...props,
   },
   renderFunc: renderComponent(NameCell, props),
+  ...columnConfig,
 });
 
-export const SsgVersion = {
-  title: 'SSG version',
-  transforms: [nowrap],
-  exportKey: 'testResultProfiles',
-  sortBy: ['ssg_version'],
-  key: 'ssg_version',
-  renderExport: (testResultProfiles) =>
-    testResultProfiles
-      .map(
-        ({ supported, benchmark: { version } }) =>
-          `${!supported ? '!' : ''}${version}`
-      )
-      .join(', '),
-  renderFunc: renderComponent(SsgVersionCell),
-};
+export const SsgVersion = () =>
+  compileColumnRenderFunc({
+    title: 'SSG version',
+    transforms: [nowrap],
+    exportKey: 'testResultProfiles',
+    sortBy: ['security_guide_version'],
+    key: 'ssg_version',
+    renderExport: (testResultProfiles) =>
+      testResultProfiles
+        .map(
+          ({ supported, benchmark: { version } }) =>
+            `${!supported ? '!' : ''}${version}`,
+        )
+        .join(', '),
+    cell: SsgVersionCell,
+  });
 
 export const Policies = {
   title: 'Policies',
@@ -83,33 +96,37 @@ export const Policies = {
   renderFunc: renderComponent(PoliciesCell),
 };
 
-export const FailedRules = {
-  title: 'Failed rules',
-  key: 'failedRules',
-  exportKey: 'testResultProfiles',
-  transforms: [nowrap],
-  props: {
-    width: 5,
-    ...disableSorting,
-  },
-  renderExport: (testResultProfiles) =>
-    profilesRulesFailed(testResultProfiles).length,
-  renderFunc: renderComponent(FailedRulesCell),
-};
+export const FailedRules = () =>
+  compileColumnRenderFunc({
+    title: 'Failed rules',
+    key: 'failedRules',
+    exportKey: 'rulesFailed',
+    transforms: [nowrap],
+    sortBy: ['failed_rule_count'],
+    props: {
+      width: 5,
+    },
+    renderExport: (profiles) => {
+      return profiles;
+    },
+    renderFunc: renderComponent(FailedRulesCell),
+    cell: FailedRulesCell,
+  });
 
-export const ComplianceScore = {
-  title: 'Compliance score',
-  key: 'complianceScore',
-  exportKey: 'testResultProfiles',
-  transforms: [nowrap],
-  props: {
-    width: 5,
-    ...disableSorting,
-  },
-  renderExport: (testResultProfiles) =>
-    complianceScoreString(complianceScoreData(testResultProfiles)).trim(),
-  renderFunc: renderComponent(ComplianceScoreCell),
-};
+export const ComplianceScore = () =>
+  compileColumnRenderFunc({
+    title: 'Compliance score',
+    key: 'complianceScore',
+    sortBy: ['score'],
+    sortable: 'score',
+    transforms: [nowrap],
+    props: {
+      width: 5,
+    },
+    renderExport: ({ testResultProfiles }) =>
+      complianceScoreString(testResultProfiles[0]),
+    cell: ComplianceScoreCell,
+  });
 
 export const LastScanned = {
   title: 'Last scanned',
@@ -124,34 +141,55 @@ export const LastScanned = {
   renderFunc: renderComponent(LastScannedCell),
 };
 
-export const OperatingSystem = compileColumnRenderFunc({
-  title: 'Operating system',
-  key: 'operatingSystem',
-  sortBy: ['osMajorVersion', 'osMinorVersion'],
-  transforms: [nowrap],
-  renderExport: (cell) => operatingSystemString(cell),
-  cell: OperatingSystemCell,
-});
+export const OperatingSystem = () =>
+  compileColumnRenderFunc({
+    title: 'Operating system',
+    key: 'operatingSystem',
+    sortBy: ['os_version'],
+    transforms: [nowrap],
+    renderExport: (cell) => operatingSystemString(cell),
+    cell: OperatingSystemCell,
+  });
 
-export const OS = compileColumnRenderFunc({
-  title: (
-    <Tooltip content={<span>Operating System</span>}>
-      <span>OS</span>
-    </Tooltip>
-  ),
-  original: 'Operating System',
-  key: 'operatingSystem',
-  dataLabel: 'OS',
-  transforms: [nowrap],
-  sortBy: ['osMajorVersion', 'osMinorVersion'],
-  props: {
-    width: 10,
-  },
-  renderExport: (cell) => operatingSystemString(cell),
-  cell: OperatingSystemCell,
-});
+export const OS = () =>
+  compileColumnRenderFunc({
+    title: (
+      <Tooltip content={<span>Operating System</span>}>
+        <span>OS</span>
+      </Tooltip>
+    ),
+    original: 'Operating System',
+    key: 'operatingSystem',
+    dataLabel: 'OS',
+    transforms: [nowrap],
+    sortBy: ['os_version'],
+    props: {
+      width: 10,
+    },
+    renderExport: (cell) => operatingSystemString(cell),
+    cell: OperatingSystemCell,
+  });
 
 export const inventoryColumn = (column, props) => ({
   key: column,
   ...props,
+});
+
+export const Workspaces = inventoryColumn('groups', {
+  title: 'Workspaces',
+  requiresDefault: true,
+  sortBy: ['groups'],
+  renderExport: ({ groups }) => groups.map(({ name }) => name).join(', '),
+});
+
+export const Updated = inventoryColumn('updated', {
+  title: 'Last seen',
+  props: { isStatic: true },
+  transforms: [nowrap],
+  renderExport: ({ updated }) => updated,
+});
+
+export const Tags = inventoryColumn('tags', {
+  title: 'Tags',
+  renderExport: ({ tags }) => tags.length,
 });

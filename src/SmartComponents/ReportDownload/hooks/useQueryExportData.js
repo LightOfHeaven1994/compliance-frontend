@@ -1,81 +1,45 @@
-import { useApolloClient } from '@apollo/client';
-import { GET_SYSTEMS, GET_RULES } from '../constants';
 import { prepareForExport } from './helpers';
+import { useSystemsFetch, useFetchFailedRules } from './apiQueryHooks';
 
-const fetchBatched = (fetchFunction, total, batchSize = 50) => {
-  const pages = Math.ceil(total / batchSize) || 1;
-  return Promise.all(
-    [...new Array(pages)].map((_, pageIdx) =>
-      fetchFunction(batchSize, pageIdx + 1)
-    )
-  );
-};
+const useExportData = (report, exportSettings) => {
+  const fetchSystems = useSystemsFetch(report);
+  const fetchRules = useFetchFailedRules(report);
 
-const useSystemsFetch = ({ id: policyId, totalHostCount } = {}) => {
-  const client = useApolloClient();
+  return async () => {
+    const [
+      compliantSystems,
+      nonCompliantSystems,
+      unsupportedSystems,
+      neverReported,
+    ] = await fetchSystems();
 
-  const fetchFunction = (perPage, page) =>
-    client.query({
-      query: GET_SYSTEMS,
-      fetchResults: true,
-      fetchPolicy: 'no-cache',
-      variables: {
-        perPage,
-        page,
-        filter: `policy_id = ${policyId}`,
-        policyId,
-      },
-    });
+    const topTenFailedRules = await fetchRules();
 
-  return async () =>
-    (await fetchBatched(fetchFunction, totalHostCount)).flatMap(
-      ({
-        data: {
-          systems: { edges },
-        },
-      }) => edges.map(({ node }) => node)
+    return prepareForExport(
+      exportSettings,
+      compliantSystems,
+      nonCompliantSystems,
+      unsupportedSystems,
+      neverReported,
+      topTenFailedRules,
     );
+  };
 };
 
-const useFetchRules = ({ id: policyId } = {}) => {
-  const client = useApolloClient();
-
-  const fetchFunction = (perPage = 10, page = 1) =>
-    client.query({
-      query: GET_RULES,
-      fetchResults: true,
-      fetchPolicy: 'no-cache',
-      variables: {
-        perPage,
-        page,
-        filter: `policy_id = ${policyId}`,
-        policyId,
-      },
-    });
-
-  return async () =>
-    (await fetchFunction()).data.profiles?.edges.flatMap(
-      (edge) => edge.node.topFailedRules
-    );
-};
-
-// Hook that provides a wrapper function for a preconfigured GraphQL client to fetch export data
 const useQueryExportData = (
   exportSettings,
-  policy,
+  report,
   { onComplete, onError } = {
     onComplete: () => undefined,
     onError: () => undefined,
-  }
+  },
 ) => {
-  const fetchSystems = useSystemsFetch(policy);
-  const fetchRules = useFetchRules(policy);
+  const fetchData = useExportData(report, exportSettings);
 
   return async () => {
     try {
-      const systems = await fetchSystems();
-      const rules = await fetchRules();
-      const exportData = prepareForExport(exportSettings, systems, rules);
+      const exportData = await fetchData();
+
       onComplete?.(exportData);
       return exportData;
     } catch (error) {

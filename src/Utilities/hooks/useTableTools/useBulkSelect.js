@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { filterSelected } from './helper';
 
 const compileTitle = (itemsTotal, titleOption) => {
@@ -45,6 +45,7 @@ export const useBulkSelect = ({
   itemIdsInTable,
   itemIdsOnPage,
   identifier = 'id',
+  showTreeTable,
 }) => {
   const enableBulkSelect = !!onSelect;
   const [selectedIds, setSelectedItemIds] = useState(preselected);
@@ -54,7 +55,7 @@ export const useBulkSelect = ({
   const noneSelected = selectedIdsTotal === 0;
   const currentPageSelected = checkCurrentPageSelected(
     itemIdsOnPage(),
-    selectedIds || []
+    selectedIds || [],
   );
 
   const isDisabled = total === 0;
@@ -74,12 +75,13 @@ export const useBulkSelect = ({
 
   const unselectAll = () => [];
   const selectNone = () => onSelectCallback(unselectAll);
-  const selectOne = (_, selected, key, row) =>
+  const selectOne = (_, selected, key, row) => {
     onSelectCallback(() =>
       selected
         ? selectItems([row[identifier]])
-        : unselectItems([row[identifier]])
+        : unselectItems([row[identifier]]),
     );
+  };
 
   const selectPage = () =>
     onSelectCallback(() => {
@@ -95,7 +97,7 @@ export const useBulkSelect = ({
 
   const selectAll = () =>
     onSelectCallback(async () =>
-      allSelected ? unselectAll() : selectItems(await itemIdsInTable())
+      allSelected ? unselectAll() : selectItems(await itemIdsInTable()),
     );
 
   useEffect(() => {
@@ -106,13 +108,17 @@ export const useBulkSelect = ({
     ? {
         selectedIds,
         selectNone,
+        selectItems: (ids) => onSelectCallback(() => selectItems(ids)),
+        unselectItems: (ids) => onSelectCallback(() => unselectItems(ids)),
         tableProps: {
-          onSelect: total > 0 ? selectOne : undefined,
+          ...(!showTreeTable
+            ? { onSelect: total > 0 ? selectOne : undefined }
+            : {}),
           canSelectAll: false,
         },
         toolbarProps: {
           bulkSelect: {
-            toggleProps: { children: [title] },
+            toggleProps: { children: [title], count: total },
             isDisabled,
             items: [
               {
@@ -124,7 +130,7 @@ export const useBulkSelect = ({
               },
               {
                 title: `${selectOrUnselect(
-                  currentPageSelected
+                  currentPageSelected,
                 )} page (${paginatedTotal} items)`,
                 onClick: selectPage,
               },
@@ -155,10 +161,11 @@ export const useBulkSelectWithItems = ({
   paginator,
   preselected,
   setPage,
+  ...options
 }) => {
   const enableBulkSelect = !!onSelect;
   const items = propItems.map((item) =>
-    selectItemTransformer(item, preselected)
+    selectItemTransformer(item, preselected),
   );
   const total = items.length;
 
@@ -171,15 +178,14 @@ export const useBulkSelectWithItems = ({
 
   const allCount = filtered ? filteredTotal : total;
 
-  const setPageMemo = useMemo(() => setPage, []);
-
   useEffect(() => {
-    if (paginatedTotal === 0) {
-      setPageMemo(-1);
+    if (paginatedTotal === 0 && setPage) {
+      setPage?.(-1);
     }
-  }, [paginatedTotal, setPageMemo]);
+  }, [paginatedTotal]);
 
   const { selectNone, selectedIds, ...bulkSelect } = useBulkSelect({
+    ...options,
     total: allCount,
     onSelect,
     preselected,
