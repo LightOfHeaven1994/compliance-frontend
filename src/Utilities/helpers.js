@@ -1,6 +1,5 @@
 import React from 'react';
 import natsort from 'natsort';
-import { gql } from 'graphql-tag';
 
 export const uniq = (collection) => [...new Set(collection)];
 
@@ -16,8 +15,9 @@ export const sortingByProp =
   };
 
 // eslint-disable-next-line react/display-name
-export const renderComponent = (Component, props) => (_data, _id, entity) =>
-  <Component {...entity} {...props} />;
+export const renderComponent = (Component, props) => (_data, _id, entity) => (
+  <Component {...entity} {...props} />
+);
 
 const getSortable = (property, item) => {
   if (typeof property === 'function') {
@@ -27,24 +27,24 @@ const getSortable = (property, item) => {
   }
 };
 
-export const stringToId = (string) => string.split(' ').join('').toLowerCase();
+export const stringToId = (string) => string.split(' ').join('-').toLowerCase();
 
 export const orderArrayByProp = (property, objects, direction) =>
   objects.sort((a, b) => {
     if (direction === 'asc') {
       return String(getSortable(property, a)).localeCompare(
-        String(getSortable(property, b))
+        String(getSortable(property, b)),
       );
     } else {
       return -String(getSortable(property, a)).localeCompare(
-        String(getSortable(property, b))
+        String(getSortable(property, b)),
       );
     }
   });
 
 export const orderByArray = (objectArray, orderProp, orderArray, direction) => {
   const sortedObjectArray = orderArray.flatMap((orderKey) =>
-    objectArray.filter((item) => item[orderProp] === orderKey)
+    objectArray.filter((item) => item[orderProp] === orderKey),
   );
   return direction !== 'asc' ? sortedObjectArray.reverse() : sortedObjectArray;
 };
@@ -68,130 +68,40 @@ export const camelCase = (string) =>
     .map((string) => string[0].toUpperCase() + string.substring(1))
     .join('');
 
-export const constructQuery = (columns) => {
-  const fragments = {};
-  const columnKeys = columns?.map((column) => column.key);
-  columnKeys?.forEach((key) => (fragments[key + 'Column'] = true));
-
-  const query = gql`
-    fragment NameColumn on System {
-      name
-      osMajorVersion
-      osMinorVersion
+export const logMultipleErrors = (...errors) => {
+  for (const error of errors) {
+    if (error) {
+      console.error(error);
     }
+  }
 
-    fragment OsColumn on System {
-      osMajorVersion
-      osMinorVersion
-    }
-
-    fragment SsgVersionColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        supported
-        benchmark {
-          version
-        }
-      }
-    }
-
-    fragment PoliciesColumn on System {
-      policies(policyId: $policyId) {
-        id
-        name
-      }
-    }
-
-    fragment FailedRulesColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        refId
-        supported
-        osMajorVersion
-        rules {
-          refId
-          title
-          compliant
-          remediationAvailable
-          precedence
-        }
-      }
-    }
-
-    fragment ComplianceScoreColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        score
-        lastScanned
-        compliant
-        rules {
-          compliant
-        }
-      }
-    }
-
-    fragment LastScannedColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        lastScanned
-      }
-    }
-
-    fragment UpdatedColumn on System {
-      updated
-      culledTimestamp
-      staleWarningTimestamp
-      staleTimestamp
-    }
-
-    fragment TagsColumn on System {
-      tags
-    }
-
-    query getSystems(
-      $filter: String!
-      $policyId: ID
-      $perPage: Int
-      $page: Int
-      $sortBy: [String!]
-      $tags: [String!]
-      $nameColumn: Boolean = false
-      $operatingSystemColumn: Boolean = false
-      $ssg_versionColumn: Boolean = false
-      $policiesColumn: Boolean = false
-      $failedRulesColumn: Boolean = false
-      $complianceScoreColumn: Boolean = false
-      $lastScannedColumn: Boolean = false
-      $updatedColumn: Boolean = false
-      $tagsColumn: Boolean = false
-    ) {
-      systems(
-        search: $filter
-        limit: $perPage
-        offset: $page
-        sortBy: $sortBy
-        tags: $tags
-      ) {
-        totalCount
-        edges {
-          node {
-            id
-            testResultProfiles(policyId: $policyId) {
-              id
-            }
-            ...NameColumn @include(if: $nameColumn)
-            ...OsColumn @include(if: $operatingSystemColumn)
-            ...SsgVersionColumn @include(if: $ssg_versionColumn)
-            ...PoliciesColumn @include(if: $policiesColumn)
-            ...FailedRulesColumn @include(if: $failedRulesColumn)
-            ...ComplianceScoreColumn @include(if: $complianceScoreColumn)
-            ...LastScannedColumn @include(if: $lastScannedColumn)
-            ...UpdatedColumn @include(if: $updatedColumn)
-            ...TagsColumn @include(if: $tagsColumn)
-          }
-        }
-      }
-    }
-  `;
-
-  return {
-    query,
-    fragments,
-  };
+  return errors?.filter((v) => !!v).length > 0 || undefined;
 };
+
+export const buildOSObject = (osVersions = []) => {
+  return osVersions
+    .filter((version) => !!version && typeof version === 'string')
+    .map((version) => {
+      const [major, minor] = version.split('.');
+      return {
+        count: 0,
+        value: {
+          name: 'RHEL',
+          major,
+          minor,
+        },
+      };
+    });
+};
+export const calculateOffset = (page, perPage) => (page - 1) * perPage;
+
+export const capitalizeWord = (string) =>
+  string.charAt(0).toUpperCase() + string.slice(1);
+
+export const stringToSentenceCase = (string) => {
+  const lowercasedString = string.toLowerCase();
+  return lowercasedString.charAt(0).toUpperCase() + lowercasedString.slice(1);
+};
+
+export const isObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
