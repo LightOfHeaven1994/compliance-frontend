@@ -16,6 +16,8 @@
     "@patternfly/react-tokens": "^6.4.0",
     "@project-kessel/react-kessel-access-check": "^0.3.1",
     "@redhat-cloud-services/compliance-client": "^3.0.7",
+    "@data-driven-forms/pf4-component-mapper": "^4.1.6",
+    "@data-driven-forms/react-form-renderer": "^4.1.5",
     "@redhat-cloud-services/frontend-components": "^7.0.5",
     "@redhat-cloud-services/frontend-components-config-utilities": "^4.6.0",
     "@redhat-cloud-services/frontend-components-notifications": "^6.1.7",
