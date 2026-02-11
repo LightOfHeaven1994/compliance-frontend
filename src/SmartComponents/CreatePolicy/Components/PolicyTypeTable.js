@@ -1,86 +1,73 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import { fitContent, info } from '@patternfly/react-table';
-import { InUseProfileLabel } from 'PresentationalComponents';
-import { TableToolsTable } from 'Utilities/hooks/useTableTools';
-import { renderComponent } from 'Utilities/helpers';
+import { fitContent } from '@patternfly/react-table';
+import { ComplianceTable as TableToolsTable } from 'PresentationalComponents';
 import { conditionalFilterType } from '@redhat-cloud-services/frontend-components/ConditionalFilter';
 import PolicyTypeDetailsRow from './PolicyTypeDetailsRow';
+import { emptyRows } from 'PresentationalComponents/NoResultsTable/NoResultsTable';
 
-const NameCell = ({ name, disabled }) => {
+const PolicyTypeTable = ({
+  profiles,
+  onChange,
+  selectedProfile,
+  loading,
+  total,
+}) => {
+  const columns = [
+    {
+      title: 'Policy name',
+      key: 'title',
+      sortable: 'title',
+    },
+    {
+      title: 'Supported OS versions',
+      transforms: [fitContent],
+      sortable: 'os_minor_versions',
+      Component: (profile) => profile.supportedOsVersions.join(', '),
+    },
+  ];
+
   return (
-    <>
-      {disabled && <InUseProfileLabel compact />}
-      {name}
-    </>
+    <TableToolsTable
+      aria-label="PolicyTypeTable"
+      ouiaId="PolicyTypeTable"
+      items={profiles?.map((profile) => ({
+        ...profile,
+        rowProps: {
+          selected: profile.id === selectedProfile?.id,
+        },
+      }))}
+      loading={loading}
+      total={total}
+      filters={{
+        filterConfig: [
+          {
+            type: conditionalFilterType.text,
+            label: 'Policy name',
+            filterAttribute: 'title',
+          },
+        ],
+      }}
+      columns={columns}
+      options={{
+        detailsComponent: PolicyTypeDetailsRow,
+        onRadioSelect: (_event, _value, _rowIdx, { item: { itemId } }) =>
+          onChange && onChange(profiles.find(({ id }) => id === itemId)),
+        emptyRows: emptyRows('policy types', columns.length),
+      }}
+      variant="compact"
+    />
   );
 };
-
-NameCell.propTypes = {
-  name: propTypes.string,
-  disabled: propTypes.boolean,
-};
-
-const PolicyTypeTable = ({ profiles, onChange, selectedProfile }) => (
-  <TableToolsTable
-    items={profiles.map((profile) => ({
-      ...profile,
-      rowProps: {
-        selected: profile.id === selectedProfile?.id,
-        disableSelection: profile.disabled,
-      },
-    }))}
-    filters={{
-      filterConfig: [
-        {
-          type: conditionalFilterType.text,
-          label: 'Policy Name',
-          filter: (policyTypes, value) =>
-            policyTypes.filter((policyType) =>
-              policyType?.name.toLowerCase().includes(value.toLowerCase())
-            ),
-        },
-      ],
-    }}
-    columns={[
-      {
-        title: 'Policy name',
-        key: 'name',
-        transforms: [
-          info({
-            tooltip:
-              'In use policies have already been used and therefore can not be applied to another SCAP Policy under the selected OS.',
-          }),
-        ],
-        sortByProp: 'name',
-        renderFunc: renderComponent(NameCell),
-      },
-      {
-        title: 'Supported OS versions',
-        transforms: [fitContent],
-        sortByProp: 'supportedOsVersions',
-        renderFunc: (_data, _id, profile) =>
-          profile.supportedOsVersions.join(', '),
-      },
-    ]}
-    options={{
-      detailsComponent: PolicyTypeDetailsRow,
-      onRadioSelect: (_event, _value, _rowIdx, { itemId }) =>
-        onChange && onChange(profiles.find(({ id }) => id === itemId)),
-      sortBy: {
-        index: 2,
-        direction: 'asc',
-        property: 'name',
-      },
-    }}
-    variant="compact"
-  />
-);
 
 PolicyTypeTable.propTypes = {
   profiles: propTypes.array,
   onChange: propTypes.func,
-  selectedProfile: propTypes.string,
+  selectedProfile: propTypes.shape({
+    id: propTypes.string,
+  }),
+  loading: propTypes.bool,
+  total: propTypes.number,
 };
 
 export default PolicyTypeTable;
