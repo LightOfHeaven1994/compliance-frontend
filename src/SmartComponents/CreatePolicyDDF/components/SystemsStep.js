@@ -15,17 +15,16 @@ import {
 import { SystemsTable } from 'SmartComponents';
 import { countOsMinorVersions } from 'Store/Reducers/SystemStore';
 import * as Columns from 'SmartComponents/SystemsTable/Columns';
+import { ArrowLeftIcon } from '@patternfly/react-icons';
 
 const EmptyState = ({ osMajorVersion, onGoToStep1 }) => {
-  // TODO: Right now we allow to create policy with no systems. Decied what to show here.
   return (
     <React.Fragment>
       <Content className="pf-v6-u-mb-md">
         <Content component="p">
-          You do not have any <b>RHEL {osMajorVersion}</b> systems connected to
+          You do not have any <b>RHEL {osMajorVersion}</b> systems connected to{' '}
           Red Hat Lightspeed and enabled for Compliance.
           <br />
-          Policies must be created with at least one system.
         </Content>
       </Content>
       <Content className="pf-v6-u-mb-md">
@@ -33,7 +32,13 @@ const EmptyState = ({ osMajorVersion, onGoToStep1 }) => {
           Choose a different RHEL version , or connect{' '}
           <b>RHEL {osMajorVersion}</b> systems to Red Hat Lightspeed.
         </Content>
-        <Button onClick={onGoToStep1}>Choose a different RHEL version</Button>
+        <Button
+          variant="secondary"
+          onClick={onGoToStep1}
+          icon={<ArrowLeftIcon />}
+        >
+          Choose a different RHEL version
+        </Button>
       </Content>
     </React.Fragment>
   );
