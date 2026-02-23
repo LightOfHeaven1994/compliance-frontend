@@ -3,7 +3,7 @@ import propTypes from 'prop-types';
 import {
   useFormApi,
   FormSpy,
-  wizardContext as WizardContext,
+  WizardContext,
 } from '@data-driven-forms/react-form-renderer';
 import {
   Form,
