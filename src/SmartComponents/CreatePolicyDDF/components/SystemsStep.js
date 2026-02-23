@@ -77,19 +77,26 @@ const SystemsStepContent = ({ profile, selectedSystems = [] }) => {
 
   const onSelect = useCallback(
     (newSelectedSystems) => {
-      change('systems', newSelectedSystems);
+      const existingById = new Map(selectedSystems.map((s) => [s.id, s]));
+      const mergedSystems = newSelectedSystems.map(
+        (system) => existingById.get(system.id) || system,
+      );
+
+      change('systems', mergedSystems);
       change(
         'osMinorVersionCounts',
-        countOsMinorVersions(newSelectedSystems, profile),
+        countOsMinorVersions(mergedSystems, profile),
       );
     },
-    [change, profile],
+    [change, profile, selectedSystems],
   );
 
   const defaultFilter =
-    `os_major_version = ${osMajorVersion} AND ` +
-    `os_minor_version ^ (${profile.os_minor_versions.join(' ')}) AND ` +
-    `profile_ref_id !^ (${profile.ref_id})`;
+    osMajorVersion && profile?.os_minor_versions
+      ? `os_major_version = ${osMajorVersion} AND ` +
+        `os_minor_version ^ (${profile.os_minor_versions.join(' ')}) AND ` +
+        `profile_ref_id !^ (${profile.ref_id})`
+      : '';
 
   return (
     <React.Fragment>

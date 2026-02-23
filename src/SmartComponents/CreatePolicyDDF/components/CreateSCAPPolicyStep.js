@@ -53,6 +53,8 @@ const CreateSCAPPolicyStepContent = ({
     error: availableProfilesError,
   } = useSupportedProfiles({
     params: {
+      // The reason we are using the ^ operator is because Akamai is blocking
+      // this request when it's combined with title filter. See: RHINENG-23142
       filters: `os_major_version ^ (${selectedOsMajorVersion})`,
     },
     useTableState: true,
