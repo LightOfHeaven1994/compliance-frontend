@@ -1,101 +1,109 @@
-import React from 'react';
-import { useQuery } from '@apollo/client';
+import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import gql from 'graphql-tag';
-import propTypes from 'prop-types';
-import PageHeader, {
-  PageHeaderTitle,
-} from '@redhat-cloud-services/frontend-components/PageHeader';
-import RulesTable from '../../PresentationalComponents/RulesTable/RulesTable';
 import * as Columns from '@/PresentationalComponents/RulesTable/Columns';
-import { Spinner, Text, TextContent } from '@patternfly/react-core';
+import { RulesTable } from '@/PresentationalComponents';
+import PolicyRulesHeader from './PolicyRulesHeader';
+import { useFullTableState } from 'bastilian-tabletools';
+import { TableStateProvider } from 'bastilian-tabletools';
+import useSecurityGuide from 'Utilities/hooks/api/useSecurityGuide';
+import useProfile from 'Utilities/hooks/api/useProfile';
+import useSecurityGuideProfileData from 'PresentationalComponents/Tailorings/hooks/useSecurityGuideProfileData';
+import {
+  prepareTreeTable,
+  skips,
+} from 'PresentationalComponents/Tailorings/helpers';
+import useSecurityGuideData from 'PresentationalComponents/Tailorings/hooks/useSecurityGuideData';
 
-const PROFILES_QUERY = gql`
-  query Profile($policyId: String!) {
-    profile(id: $policyId) {
-      id
-      name
-      refId
-      osMinorVersion
-      osMajorVersion
-      benchmark {
-        version
-      }
-      rules {
-        id
-        title
-        severity
-        rationale
-        refId
-        description
-        remediationAvailable
-        identifier
-      }
-    }
-  }
-`;
+const PolicyDefaultRules = () => {
+  const tableState = useFullTableState();
+  const { policy_id: profileId, security_guide_id: securityGuideId } =
+    useParams();
 
-const PolicyRules = () => {
-  const { policy_id: policyId } = useParams();
+  const openRuleGroups = tableState?.tableState?.['open-items'];
+  const groupFilter =
+    tableState?.tableState?.tableView === 'tree' && openRuleGroups?.length > 0
+      ? `rule_group_id ^ (${openRuleGroups.map((id) => `${id}`).join(' ')})`
+      : undefined;
 
-  const { data, loading } = useQuery(PROFILES_QUERY, {
-    variables: {
-      policyId: policyId,
+  const { data: securityGuideData } = useSecurityGuide({
+    params: {
+      securityGuideId: securityGuideId,
     },
   });
 
-  return loading ? (
-    <PageHeader>
-      <Spinner />
-    </PageHeader>
-  ) : (
-    <React.Fragment>
-      <PageHeader className="pf-u-pt-xl pf-u-pl-xl">
-        <PageHeaderTitle
-          title={`Compliance | Default rules for ${data?.profile.name} policy`}
+  const { data: profileData } = useProfile({
+    params: {
+      securityGuideId: securityGuideId,
+      profileId: profileId,
+    },
+  });
+
+  const shouldSkip = skips({
+    skipProfile: 'policy-default-rules',
+    securityGuideId,
+    profileId,
+    tableState,
+  });
+
+  const {
+    data: { ruleGroups },
+  } = useSecurityGuideData({
+    securityGuideId,
+    ...shouldSkip.securityGuide,
+  });
+
+  const {
+    data: { rules: profileRules, ruleTree: profileRuleTree },
+    exporter,
+  } = useSecurityGuideProfileData({
+    securityGuideId,
+    profileId,
+    groupFilter,
+    tableState,
+    ...shouldSkip.profile,
+  });
+
+  const ruleTree = useMemo(
+    () =>
+      prepareTreeTable({
+        profileRuleTree,
+        ruleGroups,
+      }),
+    [ruleGroups, profileRuleTree],
+  );
+
+  return (
+    <>
+      <PolicyRulesHeader
+        name={profileData?.data?.title}
+        securityGuideVersion={securityGuideData?.data?.version}
+        osMajorVersion={securityGuideData?.data?.os_major_version}
+      />
+      <div className="pf-v6-u-p-xl" style={{ background: '#fff' }}>
+        <RulesTable
+          policyId={profileId}
+          securityGuideId={securityGuideId}
+          total={profileRules?.meta.total}
+          ruleTree={ruleTree}
+          rules={ruleTree ? profileRules?.data || [] : profileRules?.data}
+          ansibleSupportFilter
+          remediationsEnabled={false}
+          columns={[Columns.Name, Columns.Severity, Columns.Remediation]}
+          ruleValues={{}}
+          skipValueDefinitions={true}
+          options={{
+            exporter,
+          }}
         />
-        <TextContent className="pf-u-mb-md pf-u-mt-md">
-          <Text>
-            This is a read-only view of the full set of rules and their
-            description for
-            <b>{data?.profile.name} policy</b> operating on
-            <br />
-            <b>RHEL {data?.profile.osMajorVersion}</b> -{' '}
-            <b>SSG version: {data?.profile.benchmark.version}</b>
-          </Text>
-          <Text>Rule selection must be made in the policy modal</Text>
-        </TextContent>
-      </PageHeader>
-      {data && (
-        <div className="pf-u-p-xl" style={{ background: '#fff' }}>
-          <RulesTable
-            remediationsEnabled={false}
-            columns={[Columns.Name, Columns.Severity, Columns.Remediation]}
-            loading={loading}
-            profileRules={[
-              {
-                profile: {
-                  refId: data.profile.refId,
-                  name: data.profile.name,
-                },
-                rules: data.profile.rules,
-              },
-            ]}
-            options={{ pagination: false, manageColumns: false }}
-          />
-        </div>
-      )}
-    </React.Fragment>
+      </div>
+    </>
   );
 };
 
-PolicyRules.propTypes = {
-  loading: propTypes.bool,
-  policy: propTypes.shape({
-    name: propTypes.string,
-    refId: propTypes.string,
-    rules: propTypes.array,
-    benchmark: propTypes.object,
-  }),
-};
-export default PolicyRules;
+const PolicyRulesWrapper = () => (
+  <TableStateProvider>
+    <PolicyDefaultRules />
+  </TableStateProvider>
+);
+
+export default PolicyRulesWrapper;

@@ -1,36 +1,22 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import { ApolloClient, HttpLink, InMemoryCache } from 'apollo-boost';
+import InsightsLink from '@redhat-cloud-services/frontend-components/InsightsLink';
 import {
-  Title,
-  TextContent,
+  Content,
   Button,
   EmptyState,
   EmptyStateBody,
-  EmptyStatePrimary,
-  EmptyStateSecondaryActions,
-  EmptyStateIcon,
+  EmptyStateActions,
+  EmptyStateFooter,
 } from '@patternfly/react-core';
 import { CloudSecurityIcon } from '@patternfly/react-icons';
-import gql from 'graphql-tag';
-import { useQuery } from '@apollo/client';
 import { Spinner } from '@redhat-cloud-services/frontend-components/Spinner';
 import { ErrorCard } from 'PresentationalComponents';
-const COMPLIANCE_API_ROOT = '/api/compliance';
+import usePolicies from 'Utilities/hooks/api/usePolicies';
 
-const QUERY = gql`
-  {
-    profiles(search: "external = false and canonical = false") {
-      totalCount
-    }
-  }
-`;
-
-const ComplianceEmptyState = ({ title, mainButton, client }) => {
-  const { data, error, loading } = useQuery(QUERY, {
-    fetchPolicy: 'network-only',
-    client,
-  });
+const ComplianceEmptyState = ({ title = 'No policies', mainButton }) => {
+  const { data, error, loading } = usePolicies({ params: { limit: 1 } });
+  const policiesCount = data?.meta?.total || 0;
 
   if (loading) {
     return <Spinner />;
@@ -41,60 +27,68 @@ const ComplianceEmptyState = ({ title, mainButton, client }) => {
     return <ErrorCard errorMsg={errorMsg} />;
   }
 
-  const policiesCount = data.profiles.totalCount;
-
   const policyWord = policiesCount > 1 ? 'policies' : 'policy';
   const haveWord = policiesCount > 1 ? 'have' : 'has';
 
   return (
-    <EmptyState>
-      <EmptyStateIcon
-        style={{
-          fontWeight: '500',
-          color: 'var(--pf-global--primary-color--100)',
-        }}
-        size="xl"
-        title="Compliance"
-        icon={CloudSecurityIcon}
-      />
-      <Title headingLevel="h2" size="lg">
-        {title}
-      </Title>
+    <EmptyState
+      headingLevel="h2"
+      icon={CloudSecurityIcon}
+      titleText={<>{title}</>}
+      style={{
+        '--pf-v6-c-empty-state__icon--FontSize':
+          'var(--pf-v6-c-empty-state--m-xl__icon--FontSize)',
+      }}
+    >
       <EmptyStateBody>
         {policiesCount > 0 ? (
-          <TextContent>
-            <a href="insights/compliance/scappolicies">
+          <Content>
+            <InsightsLink to="/scappolicies">
               {policiesCount} {policyWord}
-            </a>{' '}
+            </InsightsLink>{' '}
             {haveWord} been created but {haveWord} no reports.
-          </TextContent>
+          </Content>
         ) : (
           <></>
         )}
-        <TextContent>
+        <Content>
           The Compliance service uses SCAP policies to track your
           organization&#39;s adherence to compliance requirements.
-        </TextContent>
-        <TextContent>
+        </Content>
+        <Content>
           Get started by adding a policy, or read documentation about how to
           connect OpenSCAP to the Compliance service.
-        </TextContent>
+        </Content>
       </EmptyStateBody>
-      <EmptyStatePrimary>{mainButton}</EmptyStatePrimary>
-      <EmptyStateSecondaryActions>
-        <Button
-          variant="link"
-          component="a"
-          target="_blank"
-          rel="noopener noreferrer"
-          href={
-            `https://access.redhat.com/documentation/en-us/red_hat_insights/` +
-            `2022/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/index`
-          }
-        >
-          Learn about OpenSCAP and Compliance
-        </Button>
-      </EmptyStateSecondaryActions>
+      <EmptyStateFooter>
+        <EmptyStateActions>
+          {mainButton ? (
+            mainButton
+          ) : (
+            <Button
+              variant="primary"
+              component="a"
+              href="/insights/compliance/scappolicies"
+            >
+              Create new policy
+            </Button>
+          )}
+        </EmptyStateActions>
+        <EmptyStateActions>
+          <Button
+            variant="link"
+            component="a"
+            target="_blank"
+            rel="noopener noreferrer"
+            href={
+              `https://access.redhat.com/documentation/en-us/red_hat_insights/` +
+              `1-latest/html/assessing_and_monitoring_security_policy_compliance_of_rhel_systems/index`
+            }
+          >
+            Learn about OpenSCAP and Compliance
+          </Button>
+        </EmptyStateActions>
+      </EmptyStateFooter>
     </EmptyState>
   );
 };
@@ -102,27 +96,6 @@ const ComplianceEmptyState = ({ title, mainButton, client }) => {
 ComplianceEmptyState.propTypes = {
   title: propTypes.string,
   mainButton: propTypes.object,
-  client: propTypes.object,
-};
-
-ComplianceEmptyState.defaultProps = {
-  title: 'No policies',
-  mainButton: (
-    <Button
-      variant="primary"
-      component="a"
-      href="/insights/compliance/scappolicies"
-    >
-      Create new policy
-    </Button>
-  ),
-  client: new ApolloClient({
-    link: new HttpLink({
-      uri: COMPLIANCE_API_ROOT + '/graphql',
-      credentials: 'include',
-    }),
-    cache: new InMemoryCache(),
-  }),
 };
 
 export default ComplianceEmptyState;

@@ -1,19 +1,24 @@
 import React from 'react';
 import ComplianceEmptyState from '../ComplianceEmptyState';
-import { BackgroundLink, LinkButton } from 'PresentationalComponents';
+import {
+  LinkWithPermission as Link,
+  LinkButton,
+} from 'PresentationalComponents';
 
 const ReportsEmptyState = () => (
   <ComplianceEmptyState
     title={'No policies are reporting'}
     mainButton={
-      <BackgroundLink
+      <Link
         to="/scappolicies/new"
-        component={LinkButton}
-        variant="primary"
-        ouiaId="CreateNewPolicyButton"
+        Component={LinkButton}
+        componentProps={{
+          variant: 'primary',
+          ouiaId: 'CreateNewPolicyButton',
+        }}
       >
         Create new policy
-      </BackgroundLink>
+      </Link>
     }
   />
 );

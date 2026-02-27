@@ -1,32 +1,32 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import { COMPLIANCE_TABLE_DEFAULTS } from '@/constants';
-import { BackgroundLink, LinkButton } from 'PresentationalComponents';
-import { TableToolsTable } from 'Utilities/hooks/useTableTools';
-import useFeature from 'Utilities/hooks/useFeature';
 import columns, { exportableColumns } from './Columns';
 import * as Filters from './Filters';
-import { emptyRows } from '../../Utilities/hooks/useTableTools/Components/NoResultsTable';
+
+import { emptyRows } from 'PresentationalComponents/NoResultsTable/NoResultsTable';
 import useActionResolver from './hooks/useActionResolvers';
+import useComplianceTableDefaults from 'Utilities/hooks/useComplianceTableDefaults';
 
-const DedicatedAction = () => (
-  <BackgroundLink
-    to="/scappolicies/new"
-    component={LinkButton}
-    variant="primary"
-    ouiaId="CreateNewPolicyButton"
-  >
-    Create new policy
-  </BackgroundLink>
-);
+import ComplianceTable from 'PresentationalComponents/ComplianceTable/ComplianceTable';
 
-export const PoliciesTable = ({ policies }) => {
-  const manageColumnsEnabled = useFeature('manageColumns');
+export const PoliciesTable = ({
+  policies,
+  DedicatedAction,
+  total,
+  loading,
+  options,
+  deletePermission,
+  editPermission,
+}) => {
+  const complianceTableDefaults = useComplianceTableDefaults();
   const filters = Object.values(Filters);
-  const actionResolver = useActionResolver(policies);
+  const actionResolver = useActionResolver({
+    deletePermission,
+    editPermission,
+  });
 
   return (
-    <TableToolsTable
+    <ComplianceTable
       aria-label="Policies"
       ouiaId="PoliciesTable"
       className="compliance-policies-table"
@@ -36,16 +36,19 @@ export const PoliciesTable = ({ policies }) => {
       filters={{
         filterConfig: filters,
       }}
+      total={total}
+      loading={loading}
       options={{
-        ...COMPLIANCE_TABLE_DEFAULTS,
+        ...complianceTableDefaults,
         actionResolver,
-        dedicatedAction: DedicatedAction,
+        ...(DedicatedAction ? { dedicatedAction: DedicatedAction } : {}),
         exportable: {
-          ...COMPLIANCE_TABLE_DEFAULTS.exportable,
+          ...complianceTableDefaults.exportable,
           columns: exportableColumns,
         },
-        manageColumns: manageColumnsEnabled,
+        // TODO replace with empty rows component
         emptyRows: emptyRows('policies', columns.length),
+        ...options,
       }}
     />
   );
@@ -53,10 +56,18 @@ export const PoliciesTable = ({ policies }) => {
 
 PoliciesTable.propTypes = {
   policies: propTypes.array.isRequired,
-};
-
-PoliciesTable.defaultProps = {
-  policies: [],
+  DedicatedAction: propTypes.oneOfType([propTypes.node, propTypes.func]),
+  total: propTypes.number,
+  loading: propTypes.bool,
+  options: propTypes.object,
+  deletePermission: propTypes.shape({
+    hasAccess: propTypes.bool,
+    isLoading: propTypes.bool,
+  }),
+  editPermission: propTypes.shape({
+    hasAccess: propTypes.bool,
+    isLoading: propTypes.bool,
+  }),
 };
 
 export default PoliciesTable;

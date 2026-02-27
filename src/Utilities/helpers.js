@@ -1,6 +1,5 @@
 import React from 'react';
 import natsort from 'natsort';
-import { gql } from 'graphql-tag';
 
 export const uniq = (collection) => [...new Set(collection)];
 
@@ -16,182 +15,58 @@ export const sortingByProp =
   };
 
 // eslint-disable-next-line react/display-name
-export const renderComponent = (Component, props) => (_data, _id, entity) =>
-  <Component {...entity} {...props} />;
+export const renderComponent = (Component, props) => (_data, _id, entity) => (
+  <Component {...entity} {...props} />
+);
 
-const getSortable = (property, item) => {
-  if (typeof property === 'function') {
-    return property(item);
-  } else {
-    return item[property];
-  }
+export const stringToId = (string) => string.split(' ').join('-').toLowerCase();
+
+export const buildOSObject = (osVersions = []) => {
+  return osVersions
+    .filter((version) => !!version && typeof version === 'string')
+    .map((version) => {
+      const [major, minor] = version.split('.');
+      return {
+        count: 0,
+        value: {
+          name: 'RHEL',
+          major,
+          minor,
+        },
+      };
+    });
 };
 
-export const stringToId = (string) => string.split(' ').join('').toLowerCase();
+export const capitalizeWord = (string) =>
+  string.charAt(0).toUpperCase() + string.slice(1);
 
-export const orderArrayByProp = (property, objects, direction) =>
-  objects.sort((a, b) => {
-    if (direction === 'asc') {
-      return String(getSortable(property, a)).localeCompare(
-        String(getSortable(property, b))
-      );
-    } else {
-      return -String(getSortable(property, a)).localeCompare(
-        String(getSortable(property, b))
-      );
+export const stringToSentenceCase = (string) => {
+  const lowercasedString = string.toLowerCase();
+  return lowercasedString.charAt(0).toUpperCase() + lowercasedString.slice(1);
+};
+
+export const isObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+export const resetRuleValueOverrides = (
+  valueOverrides,
+  osMinorVersion,
+  ruleValues,
+) => {
+  const valueOverridesUpdated = structuredClone(valueOverrides);
+
+  Object.keys(ruleValues).forEach((ruleId) => {
+    if (valueOverridesUpdated?.[osMinorVersion]?.[ruleId] !== undefined) {
+      delete valueOverridesUpdated[osMinorVersion][ruleId];
     }
   });
 
-export const orderByArray = (objectArray, orderProp, orderArray, direction) => {
-  const sortedObjectArray = orderArray.flatMap((orderKey) =>
-    objectArray.filter((item) => item[orderProp] === orderKey)
-  );
-  return direction !== 'asc' ? sortedObjectArray.reverse() : sortedObjectArray;
-};
-
-export const getProperty = (obj, path, fallback) => {
-  const parts = path.split('.');
-  const key = parts.shift();
-  if (typeof obj[key] !== 'undefined') {
-    return parts.length > 0
-      ? getProperty(obj[key], parts.join('.'), fallback)
-      : obj[key];
+  if (
+    valueOverridesUpdated?.[osMinorVersion] &&
+    Object.keys(valueOverridesUpdated[osMinorVersion]).length === 0
+  ) {
+    delete valueOverridesUpdated[osMinorVersion];
   }
 
-  return fallback;
-};
-
-export const camelCase = (string) =>
-  string
-    .split(/[-_\W]+/g)
-    .map((string) => string.trim())
-    .map((string) => string[0].toUpperCase() + string.substring(1))
-    .join('');
-
-export const constructQuery = (columns) => {
-  const fragments = {};
-  const columnKeys = columns?.map((column) => column.key);
-  columnKeys?.forEach((key) => (fragments[key + 'Column'] = true));
-
-  const query = gql`
-    fragment NameColumn on System {
-      name
-      osMajorVersion
-      osMinorVersion
-    }
-
-    fragment OsColumn on System {
-      osMajorVersion
-      osMinorVersion
-    }
-
-    fragment SsgVersionColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        supported
-        benchmark {
-          version
-        }
-      }
-    }
-
-    fragment PoliciesColumn on System {
-      policies(policyId: $policyId) {
-        id
-        name
-      }
-    }
-
-    fragment FailedRulesColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        refId
-        supported
-        osMajorVersion
-        rules {
-          refId
-          title
-          compliant
-          remediationAvailable
-          precedence
-        }
-      }
-    }
-
-    fragment ComplianceScoreColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        score
-        lastScanned
-        compliant
-        rules {
-          compliant
-        }
-      }
-    }
-
-    fragment LastScannedColumn on System {
-      testResultProfiles(policyId: $policyId) {
-        lastScanned
-      }
-    }
-
-    fragment UpdatedColumn on System {
-      updated
-      culledTimestamp
-      staleWarningTimestamp
-      staleTimestamp
-    }
-
-    fragment TagsColumn on System {
-      tags
-    }
-
-    query getSystems(
-      $filter: String!
-      $policyId: ID
-      $perPage: Int
-      $page: Int
-      $sortBy: [String!]
-      $tags: [String!]
-      $nameColumn: Boolean = false
-      $operatingSystemColumn: Boolean = false
-      $ssg_versionColumn: Boolean = false
-      $policiesColumn: Boolean = false
-      $failedRulesColumn: Boolean = false
-      $complianceScoreColumn: Boolean = false
-      $lastScannedColumn: Boolean = false
-      $updatedColumn: Boolean = false
-      $tagsColumn: Boolean = false
-    ) {
-      systems(
-        search: $filter
-        limit: $perPage
-        offset: $page
-        sortBy: $sortBy
-        tags: $tags
-      ) {
-        totalCount
-        edges {
-          node {
-            id
-            testResultProfiles(policyId: $policyId) {
-              id
-            }
-            ...NameColumn @include(if: $nameColumn)
-            ...OsColumn @include(if: $operatingSystemColumn)
-            ...SsgVersionColumn @include(if: $ssg_versionColumn)
-            ...PoliciesColumn @include(if: $policiesColumn)
-            ...FailedRulesColumn @include(if: $failedRulesColumn)
-            ...ComplianceScoreColumn @include(if: $complianceScoreColumn)
-            ...LastScannedColumn @include(if: $lastScannedColumn)
-            ...UpdatedColumn @include(if: $updatedColumn)
-            ...TagsColumn @include(if: $tagsColumn)
-          }
-        }
-      }
-    }
-  `;
-
-  return {
-    query,
-    fragments,
-  };
+  return valueOverridesUpdated;
 };

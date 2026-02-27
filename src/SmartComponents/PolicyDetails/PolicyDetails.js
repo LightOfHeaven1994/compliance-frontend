@@ -1,20 +1,19 @@
-import React, { Fragment, useEffect } from 'react';
-import propTypes from 'prop-types';
-import gql from 'graphql-tag';
-import { useParams, useLocation } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import React, { Fragment, useMemo } from 'react';
+import PropTypes from 'prop-types';
+import { useParams } from 'react-router-dom';
 import {
   Breadcrumb,
   BreadcrumbItem,
+  Flex,
   Grid,
   GridItem,
   Tab,
+  PageSection,
+  Spinner,
 } from '@patternfly/react-core';
 import PageHeader, {
   PageHeaderTitle,
 } from '@redhat-cloud-services/frontend-components/PageHeader';
-import Main from '@redhat-cloud-services/frontend-components/Main';
-import Spinner from '@redhat-cloud-services/frontend-components/Spinner';
 import {
   PolicyDetailsDescription,
   PolicyDetailsContentLoader,
@@ -24,103 +23,85 @@ import {
   StateViewPart,
   RoutedTabs,
   BreadcrumbLinkItem,
+  Tailorings,
+  LinkButton,
 } from 'PresentationalComponents';
 import { useTitleEntity } from 'Utilities/hooks/useDocumentTitle';
+import useFeatureFlag from 'Utilities/hooks/useFeatureFlag';
+import {
+  useRbacV1Permissions,
+  useKesselPermissions,
+} from 'Utilities/hooks/usePermissionCheck';
+
 import '@/Charts.scss';
-import PolicyRulesTab from './PolicyRulesTab';
 import PolicySystemsTab from './PolicySystemsTab';
-import PolicyMultiversionRules from './PolicyMultiversionRules';
 import './PolicyDetails.scss';
+import useSaveValueOverrides from './hooks/useSaveValueOverrides';
+import useResetValueOverrides from './hooks/useResetValueOverrides';
+import usePolicy from 'Utilities/hooks/api/usePolicy';
+import usePolicyOsVersionCounts from 'Utilities/hooks/usePolicyOsVersionCounts';
+import * as Columns from '@/PresentationalComponents/RulesTable/Columns';
+import EditRulesButtonToolbarItem from './EditRulesButtonToolbarItem';
 
-export const QUERY = gql`
-  query Profile($policyId: String!) {
-    profile(id: $policyId) {
-      id
-      name
-      refId
-      external
-      description
-      totalHostCount
-      compliantHostCount
-      complianceThreshold
-      osMajorVersion
-      lastScanned
-      policyType
-      policy {
-        id
-        name
-        refId
-        profiles {
-          id
-          name
-          refId
-          osMinorVersion
-          osMajorVersion
-          benchmark {
-            id
-            title
-            latestSupportedOsMinorVersions
-            osMajorVersion
-            version
-          }
-          rules {
-            title
-            severity
-            rationale
-            refId
-            description
-            remediationAvailable
-            identifier
-            precedence
-          }
-        }
-      }
-      businessObjective {
-        id
-        title
-      }
-      hosts {
-        id
-        osMinorVersion
-      }
-    }
-  }
-`;
+const EDIT_PERMISSIONS = ['compliance:policy:write'];
 
-export const PolicyDetails = ({ route }) => {
+const PolicyDetailsContent = ({ route, usePermissionsHook }) => {
+  // TODO Replace with actual feature flag;
+  const enableImportRules = false;
   const defaultTab = 'details';
   const { policy_id: policyId } = useParams();
-  const location = useLocation();
-  let { data, error, loading, refetch } = useQuery(QUERY, {
-    variables: { policyId },
-  });
-  let policy;
-  let hasOsMinorProfiles = true;
-  if (data && !loading) {
-    policy = data.profile;
-    hasOsMinorProfiles = !!policy.policy.profiles.find(
-      (profile) => !!profile.osMinorVersion
-    );
-  }
 
-  useEffect(() => {
-    refetch();
-  }, [location, refetch]);
+  const { hasAccess: hasEditPermission, isLoading: permissionsLoading } =
+    usePermissionsHook(EDIT_PERMISSIONS);
 
-  useTitleEntity(route, policy?.name);
+  const {
+    data: { data: policy } = {},
+    error,
+    loading,
+    refetch,
+  } = usePolicy({ params: { policyId } });
+  const versionCounts = usePolicyOsVersionCounts(policyId);
+
+  const saveValueOverrides = useSaveValueOverrides();
+  const saveToPolicy = async (...args) => {
+    await saveValueOverrides(...args);
+  };
+
+  const resetValueOverrides = useResetValueOverrides(policyId, refetch);
+
+  useTitleEntity(route, policy?.title);
+  const DedicatedAction = useMemo(
+    // eslint-disable-next-line react/display-name
+    () => () => (
+      <Flex columnGap={{ default: 'columnGapSm' }}>
+        <EditRulesButtonToolbarItem policy={policy} />
+        {enableImportRules && (
+          <LinkButton
+            to={`/scappolicies/${policyId}/import-rules`}
+            variant="secondary"
+          >
+            Import rules
+          </LinkButton>
+        )}
+      </Flex>
+    ),
+    [enableImportRules, policy, policyId],
+  );
 
   return (
-    <StateViewWithError stateValues={{ error, data, loading }}>
+    <StateViewWithError
+      stateValues={{ error, data: policy && !loading, loading }}
+    >
       <StateViewPart stateKey="loading">
         <PageHeader>
           <PolicyDetailsContentLoader />
         </PageHeader>
-        <Main>
+        <section className="pf-v6-c-page__main-section">
           <Spinner />
-        </Main>
+        </section>
       </StateViewPart>
       <StateViewPart stateKey="data">
-        {policy && (
+        {policy ? (
           <Fragment>
             <PageHeader className="page-header-tabs">
               <Breadcrumb ouiaId="PolicyDetailsPathBreadcrumb">
@@ -128,11 +109,11 @@ export const PolicyDetails = ({ route }) => {
                 <BreadcrumbLinkItem to="/scappolicies">
                   SCAP policies
                 </BreadcrumbLinkItem>
-                <BreadcrumbItem isActive>{policy.name}</BreadcrumbItem>
+                <BreadcrumbItem isActive>{policy.title}</BreadcrumbItem>
               </Breadcrumb>
               <Grid gutter="lg">
                 <GridItem xl2={11} xl={10} lg={12} md={12} sm={12}>
-                  <PageHeaderTitle title={policy.name} />
+                  <PageHeaderTitle title={policy.title} />
                 </GridItem>
               </Grid>
               <RoutedTabs
@@ -145,32 +126,68 @@ export const PolicyDetails = ({ route }) => {
                 <Tab title="Systems" id="policy-systems" eventKey="systems" />
               </RoutedTabs>
             </PageHeader>
-            <Main>
+            <section className="pf-v6-c-page__main-section">
               <TabSwitcher defaultTab={defaultTab}>
                 <ContentTab eventKey="details">
-                  <PolicyDetailsDescription policy={policy} />
+                  <PolicyDetailsDescription
+                    policy={policy}
+                    refetch={refetch}
+                    hasEditPermission={!permissionsLoading && hasEditPermission}
+                  />
                 </ContentTab>
                 <ContentTab eventKey="rules">
-                  {hasOsMinorProfiles ? (
-                    <PolicyMultiversionRules policy={policy} />
-                  ) : (
-                    <PolicyRulesTab policy={policy} />
-                  )}
+                  <PageSection hasBodyWrapper={false}>
+                    <Tailorings
+                      ouiaId="RHELVersions"
+                      columns={[
+                        Columns.Name,
+                        Columns.Severity,
+                        Columns.Remediation,
+                      ]}
+                      policy={policy}
+                      level={1}
+                      DedicatedAction={DedicatedAction}
+                      onValueOverrideSave={saveToPolicy}
+                      onRuleValueReset={resetValueOverrides}
+                      selectedVersionCounts={versionCounts}
+                      skipProfile="policy-details"
+                    />
+                  </PageSection>
                 </ContentTab>
                 <ContentTab eventKey="systems">
                   <PolicySystemsTab policy={policy} />
                 </ContentTab>
               </TabSwitcher>
-            </Main>
+            </section>
           </Fragment>
+        ) : (
+          ''
         )}
       </StateViewPart>
     </StateViewWithError>
   );
 };
 
+PolicyDetailsContent.propTypes = {
+  route: PropTypes.object,
+  usePermissionsHook: PropTypes.func.isRequired,
+};
+
+export const PolicyDetails = ({ route }) => {
+  const isKesselEnabled = useFeatureFlag('compliance.kessel_enabled');
+
+  return (
+    <PolicyDetailsContent
+      route={route}
+      usePermissionsHook={
+        isKesselEnabled ? useKesselPermissions : useRbacV1Permissions
+      }
+    />
+  );
+};
+
 PolicyDetails.propTypes = {
-  route: propTypes.object,
+  route: PropTypes.object,
 };
 
 export default PolicyDetails;
