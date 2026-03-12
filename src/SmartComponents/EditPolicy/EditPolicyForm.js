@@ -1,79 +1,94 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import propTypes from 'prop-types';
 import { Form, Tab, TabTitleText } from '@patternfly/react-core';
 import { RoutedTabs } from 'PresentationalComponents';
 import EditPolicyRulesTab from './EditPolicyRulesTab';
 import EditPolicySystemsTab from './EditPolicySystemsTab';
 import NewRulesAlert from './components/NewRulesAlert';
-import { mapCountOsMinorVersions } from 'Store/Reducers/SystemStore';
-import { profilesWithRulesToSelection } from 'PresentationalComponents/TabbedRules';
-import { thresholdValid } from '../CreatePolicy/validate';
 import { useNewRulesAlertState } from './hooks/index';
 
-const profilesToOsMinorMap = (profiles, hosts) =>
-  (profiles || []).reduce((acc, profile) => {
-    if (profile.osMinorVersion !== '') {
-      acc[profile.osMinorVersion] ||= {
-        osMinorVersion: profile.osMinorVersion,
-        count: 0,
-      };
-    }
-
-    return acc;
-  }, mapCountOsMinorVersions(hosts || []));
+const getCounts = (arr) =>
+  arr.reduce(
+    (prev, cur) => ({
+      ...prev,
+      [cur]: prev[cur] ? prev[cur] + 1 : 1,
+    }),
+    {},
+  );
 
 const EditPolicyForm = ({
   policy,
   setUpdatedPolicy,
-  selectedRuleRefIds,
-  setSelectedRuleRefIds,
-  selectedSystems,
-  setSelectedSystems,
+  updatedPolicy,
+  assignedRuleIds,
+  assignedSystems,
+  setRuleValues,
+  supportedOsVersions,
+  setIsSystemsDataLoading,
 }) => {
-  const policyProfiles = policy?.policy?.profiles || [];
-  const [osMinorVersionCounts, setOsMinorVersionCounts] = useState({});
+  const assignedSystemsMap = useMemo(
+    () => new Map(assignedSystems.map((system) => [system.id, system])),
+    [assignedSystems],
+  );
+
+  const { preSelectedOsMinorVersions, assignedVersionCounts, assignedIds } =
+    useMemo(() => {
+      const versions = assignedSystems.map((system) => system.os_minor_version);
+      return {
+        preSelectedOsMinorVersions: [...new Set(versions)],
+        assignedVersionCounts: getCounts(versions),
+        assignedIds: assignedSystems.map((system) => system.id),
+      };
+    }, [assignedSystems]);
+
+  const [selectedOsMinorVersions, setSelectedOsMinorVersions] = useState(
+    preSelectedOsMinorVersions,
+  );
+  const [selectedVersionCounts, setSelectedVersionCounts] = useState(
+    assignedVersionCounts,
+  );
+  const [selectedSystems, setSelectedSystems] = useState(assignedIds);
   const [newRulesAlert, setNewRulesAlert] = useNewRulesAlertState(false);
 
   const handleSystemSelect = useCallback(
     (newSelectedSystems) => {
-      const policyMinorVersions = policy.hosts.map(
-        ({ osMinorVersion }) => osMinorVersion
+      const completeSelectedSystems = newSelectedSystems.map(
+        (system) => assignedSystemsMap.get(system.id) || system,
       );
-      const hasNewOsMinorVersions =
-        newSelectedSystems.filter(
-          ({ osMinorVersion }) => !policyMinorVersions.includes(osMinorVersion)
-        ).length > 0;
+      const newOsMinorVersions = [
+        ...new Set(
+          completeSelectedSystems.map((system) => system.os_minor_version),
+        ),
+      ];
 
-      setSelectedSystems(newSelectedSystems);
+      const hasNewOsMinorVersions = newOsMinorVersions.some(
+        (version) => !preSelectedOsMinorVersions.includes(version),
+      );
+
+      setUpdatedPolicy((prev) => ({
+        ...prev,
+        hosts: newSelectedSystems.map((system) => system.id),
+      }));
       setNewRulesAlert(hasNewOsMinorVersions);
-      setOsMinorVersionCounts(
-        profilesToOsMinorMap(policyProfiles, newSelectedSystems)
+      setSelectedOsMinorVersions(newOsMinorVersions);
+      setSelectedVersionCounts(
+        getCounts(
+          completeSelectedSystems.map((system) => system.os_minor_version),
+        ),
       );
+      setSelectedSystems(newSelectedSystems.map((system) => system.id));
     },
-    [policyProfiles, selectedRuleRefIds]
+    [
+      preSelectedOsMinorVersions,
+      assignedSystemsMap,
+      setNewRulesAlert,
+      setUpdatedPolicy,
+    ],
   );
-
-  useEffect(() => {
-    if (policy) {
-      const complianceThresholdValid = thresholdValid(
-        policy.complianceThreshold
-      );
-      const profilesWithOsMinor = policyProfiles.filter(
-        ({ osMinorVersion }) => !!osMinorVersion
-      );
-      setUpdatedPolicy({
-        ...policy,
-        complianceThresholdValid,
-      });
-
-      setSelectedRuleRefIds(profilesWithRulesToSelection(profilesWithOsMinor));
-      handleSystemSelect(policy.hosts);
-    }
-  }, [policy]);
 
   return (
     <Form>
-      <RoutedTabs ouiaId="EditSystems" defaultTab="systems" id="policy-tabs">
+      <RoutedTabs ouiaId="EditSystems" defaultTab="rules" id="policy-tabs">
         <Tab
           eventKey="rules"
           ouiaId="Rules"
@@ -81,9 +96,12 @@ const EditPolicyForm = ({
         >
           <EditPolicyRulesTab
             policy={policy}
-            setSelectedRuleRefIds={setSelectedRuleRefIds}
-            selectedRuleRefIds={selectedRuleRefIds}
-            osMinorVersionCounts={osMinorVersionCounts}
+            setRuleValues={setRuleValues}
+            assignedRuleIds={assignedRuleIds}
+            selectedOsMinorVersions={selectedOsMinorVersions}
+            selectedVersionCounts={selectedVersionCounts}
+            setUpdatedPolicy={setUpdatedPolicy}
+            updatedPolicy={updatedPolicy}
           />
         </Tab>
         <Tab
@@ -95,6 +113,8 @@ const EditPolicyForm = ({
             policy={policy}
             selectedSystems={selectedSystems}
             onSystemSelect={handleSystemSelect}
+            supportedOsVersions={supportedOsVersions}
+            setIsSystemsDataLoading={setIsSystemsDataLoading}
           />
           {newRulesAlert && <NewRulesAlert />}
         </Tab>
@@ -107,10 +127,11 @@ EditPolicyForm.propTypes = {
   policy: propTypes.object,
   updatedPolicy: propTypes.object,
   setUpdatedPolicy: propTypes.func,
-  selectedRuleRefIds: propTypes.arrayOf(propTypes.object),
-  setSelectedRuleRefIds: propTypes.func,
-  setSelectedSystems: propTypes.func,
-  selectedSystems: propTypes.array,
+  assignedRuleIds: propTypes.arrayOf(propTypes.object),
+  assignedSystems: propTypes.array,
+  setRuleValues: propTypes.func,
+  supportedOsVersions: propTypes.array,
+  setIsSystemsDataLoading: propTypes.func,
 };
 
 export default EditPolicyForm;
