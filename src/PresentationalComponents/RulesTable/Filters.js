@@ -70,10 +70,10 @@ export const policiesFilterConfig = (policies) => ({
 
 export const ANSIBLE_SUPPORT_FILTER_CONFIG = {
   type: conditionalFilterType.checkbox,
-  label: 'Ansible support',
+  label: 'Remediation type',
   items: [
-    { label: 'Ansible remediation support', value: 'true' },
-    { label: 'No Ansible remediation support', value: 'false' },
+    { label: 'Playbook', value: 'true' },
+    { label: 'Manual', value: 'false' },
   ],
   filterSerialiser: (_filterConfig, values) =>
     `(${values
