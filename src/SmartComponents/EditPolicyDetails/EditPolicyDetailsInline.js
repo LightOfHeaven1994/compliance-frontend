@@ -1,20 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
+import propTypes from 'prop-types';
 import {
   Button,
   FormGroup,
-  Text,
+  Content,
   TextInput,
-  TextVariants,
+  ContentVariants,
+  Icon,
 } from '@patternfly/react-core';
+import { TimesIcon, CheckIcon, PencilAltIcon } from '@patternfly/react-icons';
+
 import {
   PolicyThresholdTooltip,
   PolicyBusinessObjectiveTooltip,
   ComplianceThresholdHelperText,
 } from 'PresentationalComponents';
 import Truncate from '@redhat-cloud-services/frontend-components/Truncate';
-import propTypes from 'prop-types';
-import { Prompt } from 'react-router-dom';
-import { useOnSavePolicyDetails } from '../EditPolicy/hooks';
+// import Prompt from '@redhat-cloud-services/frontend-components/Prompt';
+import { useOnSave as useOnSavePolicyDetails } from '../EditPolicy/hooks';
 import { thresholdValid } from '../CreatePolicy/validate';
 
 const EditPolicyDetailsInline = ({
@@ -28,45 +31,49 @@ const EditPolicyDetailsInline = ({
   textUnderInline,
   typeOfInput,
   Component = TextInput,
+  refetch,
+  style,
+  hasEditPermission,
   ...props
 }) => {
   const copiedData = policy;
+  // TODO Re-enable when there is a alternative to Prompt
+  // const [dirty, setDirty] = useState(false);
+
   const [value, setValue] = useState(text);
   const [validThreshold, setValidThreshold] = useState(true);
-  const handleTextUpdate = (newText, e) => {
-    if (e.target.id === 'policydetails-input-threshold') {
+  const handleTextUpdate = (event, newText) => {
+    if (event.target.id === 'policydetails-input-threshold') {
       if (thresholdValid(newText) === true) {
         setValue(newText);
         setValidThreshold(true);
-        setDirty(!!e.target.value);
+        // setDirty(!!e.target.value);
       } else {
         setValidThreshold(false);
       }
     }
     setValue(newText);
-    setDirty(!!e.target.value);
+    // setDirty(!!e.target.value);
   };
+
+  const handleSaveEdit = () => {
+    setIsEditOpen(false);
+    refetch();
+  };
+
   const handleCloseEdit = () => {
     setIsEditOpen(false);
-    setDirty(false);
-    setValue(text);
+    // setDirty(false);
   };
-  //marking page as dirty if user didn't save changes and tries to navigate away
-  const [dirty, setDirty] = useState(false);
-  const constructData =
-    propertyName === 'businessObjective'
-      ? { ...copiedData, [propertyName]: { title: value } }
-      : {
-          ...copiedData,
-          [propertyName]: value,
-        };
 
-  const [isSaving, onSave] = useOnSavePolicyDetails(
-    policy,
-    constructData,
-    handleCloseEdit,
-    policy.id
-  );
+  const constructData = {
+    ...copiedData,
+    [propertyName]: value,
+  };
+
+  const [isSaving, onSave] = useOnSavePolicyDetails(policy, constructData, {
+    onSave: handleSaveEdit,
+  });
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const handleToggle = () => {
@@ -81,87 +88,107 @@ const EditPolicyDetailsInline = ({
   }, [isEditOpen]);
 
   return (
-    <FormGroup className="pf-c-inline-edit pf-m-inline-editable">
-      <Text component={TextVariants.h5}>
+    <FormGroup className="pf-v6-c-inline-edit pf-v6-m-inline-editable">
+      <Content component={ContentVariants.h5}>
         {label}
-        <Button
-          onClick={handleToggle}
-          variant="plain"
-          style={{ 'margin-left': '5px' }}
-        >
-          <i className="fas fa-pencil-alt" aria-hidden="true" />
-        </Button>
+        {hasEditPermission && (
+          <Button
+            icon={<PencilAltIcon />}
+            onClick={handleToggle}
+            variant="plain"
+            style={{ marginLeft: '5px' }}
+            ouiaId="InlineEditPencil"
+          />
+        )}
         {variant === 'threshold' ? (
           <PolicyThresholdTooltip />
         ) : variant === 'business' ? (
           <PolicyBusinessObjectiveTooltip />
         ) : null}
-      </Text>
-      <Text className="pf-c-inline-edit__value" id="pf-global--spacer--xs">
-        {text}
-      </Text>
-      <div className="pf-c-inline-edit__action pf-m-enable-editable">
-        <Button
-          className="pf-c-button pf-m-plain"
-          type="button"
-          id="edit-button"
-          aria-label="Edit"
-          aria-labelledby="single-editable-edit-button"
-        />
-      </div>
-      <div className="pf-c-inline-edit__group">
+      </Content>
+      <div className="pf-v6-c-inline-edit__group">
         {isEditOpen ? (
           <>
-            <div>
+            <div style={style}>
               <Component value={value} onChange={handleTextUpdate} {...props} />
               {showTextUnderInline && validThreshold ? (
-                <Text>{textUnderInline}</Text>
+                <Content component="p">{textUnderInline}</Content>
               ) : null}
               {!validThreshold && (
                 <ComplianceThresholdHelperText threshold={value} />
               )}
             </div>
-            <div className="pf-c-inline-edit__group pf-m-action-group pf-m-icon-group">
-              <div className="pf-c-inline-edit__action pf-m-valid">
+            <div
+              className="pf-v6-c-inline-edit__group pf-v6-m-action-group pf-v6-m-icon-group"
+              style={{
+                display: 'inline',
+              }}
+            >
+              <div
+                className="pf-v6-c-inline-edit__action pf-v6-m-valid"
+                style={{
+                  display: 'inline',
+                }}
+              >
                 <Button
-                  className="pf-c-button pf-m-plain"
+                  icon={
+                    <Icon>
+                      <CheckIcon />
+                    </Icon>
+                  }
+                  className="pf-v6-c-button"
+                  variant="plain"
                   type="button"
                   aria-label="Save edits"
+                  ouiaId="SaveEdits"
                   isDisabled={!validThreshold ? true : false}
                   isLoading={isSaving}
-                  onClick={onSave}
-                  style={{ 'margin-left': '5px' }}
-                >
-                  <i className="fas fa-check" aria-hidden="true"></i>
-                </Button>
+                  onClick={() => onSave()}
+                  style={{
+                    marginLeft: '5px',
+                    color: validThreshold
+                      ? 'var(--pf-t--global--background--color--primary--default)'
+                      : 'var(--pf-v6-c-button--disabled--Color)',
+                  }}
+                />
               </div>
-              <div className="pf-c-inline-edit__action">
+              <div
+                className="pf-v6-c-inline-edit__action"
+                style={{
+                  display: 'inline',
+                }}
+              >
                 <Button
-                  className="pf-c-button pf-m-plain"
+                  icon={
+                    <Icon>
+                      <TimesIcon />
+                    </Icon>
+                  }
+                  className="pf-v6-c-button"
+                  variant="plain"
                   type="button"
                   aria-label="Cancel edits"
+                  ouiaId="CancelEdits"
                   onClick={handleCloseEdit}
-                  style={{ 'margin-left': '5px' }}
-                >
-                  <i className="fas fa-times" aria-hidden="true"></i>
-                </Button>
+                  style={{ marginLeft: '5px' }}
+                />
               </div>
             </div>
           </>
         ) : variant !== 'description' ? (
-          <Text className="labelClosedText" component={TextVariants.p}>
+          <Content className="labelClosedText" component={ContentVariants.p}>
             {inlineClosedText}
-          </Text>
+          </Content>
         ) : (
-          <Text className="textAreaClosedText" component={TextVariants.p}>
+          <Content className="textAreaClosedText" component={ContentVariants.p}>
             <Truncate text={text} length={380} inline={true} />
-          </Text>
+          </Content>
         )}
       </div>
-      <Prompt
+      {/* <Prompt
         when={dirty}
         message="You have unsaved changes on this page. Are you sure you want to leave?"
-      />
+      /> */}
     </FormGroup>
   );
 };
@@ -169,14 +196,17 @@ const EditPolicyDetailsInline = ({
 EditPolicyDetailsInline.propTypes = {
   text: propTypes.string,
   variant: propTypes.string,
-  policy: propTypes.obj,
+  policy: propTypes.object,
   propertyName: propTypes.string,
   inlineClosedText: propTypes.string,
   label: propTypes.string,
   showTextUnderInline: propTypes.string,
   textUnderInline: propTypes.string,
   typeOfInput: propTypes.string,
-  Component: propTypes.component,
+  Component: propTypes.elementType,
+  refetch: propTypes.func,
+  style: propTypes.object,
+  hasEditPermission: propTypes.bool.isRequired,
 };
 
 export default EditPolicyDetailsInline;
