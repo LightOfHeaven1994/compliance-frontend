@@ -1,12 +1,18 @@
+import React from 'react';
+import propTypes from 'prop-types';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import useFeatureFlag from 'Utilities/hooks/useFeatureFlag';
+import {
+  useRbacV1Permissions,
+  useKesselPermissions,
+} from 'Utilities/hooks/usePermissionCheck';
 
-import LinkWithPermission, { LinkWithRBAC } from './LinkWithPermission';
-import { usePermissionsWithContext } from '@redhat-cloud-services/frontend-components-utilities/RBACHook';
-import useFeature from 'Utilities/hooks/useFeature';
-jest.mock('Utilities/hooks/useFeature');
+jest.mock('Utilities/hooks/useFeatureFlag');
+jest.mock('Utilities/hooks/usePermissionCheck');
 
-import propTypes from 'prop-types';
+import LinkWithPermission from './LinkWithPermission';
+
 const Link = ({ children, isDisabled, ...props }) => {
   return (
     <button {...props} disabled={isDisabled}>
@@ -20,71 +26,108 @@ Link.propTypes = {
   children: propTypes.node,
 };
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  Link,
+jest.mock('@redhat-cloud-services/frontend-components/InsightsLink', () => ({
+  __esModule: true,
+  default: Link,
 }));
 
-jest.mock(
-  '@redhat-cloud-services/frontend-components-utilities/RBACHook',
-  () => ({
-    ...jest.requireActual(
-      '@redhat-cloud-services/frontend-components-utilities/RBACHook'
-    ),
-    usePermissionsWithContext: jest.fn(() => ({
-      hasAccess: true,
-      isLoading: false,
-    })),
-  })
-);
+const setPermissionMocks = (isKesselEnabled, { hasAccess, isLoading }) => {
+  useFeatureFlag.mockReturnValue(isKesselEnabled);
+  if (isKesselEnabled) {
+    useKesselPermissions.mockImplementation(() => ({ hasAccess, isLoading }));
+  } else {
+    useRbacV1Permissions.mockImplementation(() => ({ hasAccess, isLoading }));
+  }
+};
 
-const linkText = 'Test Link';
+const expectCorrectPermissionHookCalled = (isKesselEnabled) => {
+  if (isKesselEnabled) {
+    expect(useKesselPermissions).toHaveBeenCalled();
+    expect(useRbacV1Permissions).not.toHaveBeenCalled();
+  } else {
+    expect(useRbacV1Permissions).toHaveBeenCalled();
+    expect(useKesselPermissions).not.toHaveBeenCalled();
+  }
+};
 
 describe('LinkWithPermission', () => {
-  beforeEach(() => {
-    usePermissionsWithContext.mockImplementation(() => ({
-      hasAccess: false,
-      isLoading: false,
-    }));
+  const linkText = 'Test Link';
+
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('expect to render without error', () => {
-    useFeature.mockImplementation(() => false);
-    render(<LinkWithPermission to="/reports">{linkText}</LinkWithPermission>);
+  test.each([false, true])(
+    'isKesselEnabled=%s - expect to render enabled when has access',
+    (isKesselEnabled) => {
+      setPermissionMocks(isKesselEnabled, {
+        hasAccess: true,
+        isLoading: false,
+      });
 
-    expect(screen.getByText(linkText)).not.toBeDisabled();
-  });
+      render(<LinkWithPermission to="/reports">{linkText}</LinkWithPermission>);
 
-  it('expect to render a disabled button if rbac is enabled', () => {
-    useFeature.mockImplementation(() => true);
-    render(<LinkWithPermission to="/reports">{linkText}</LinkWithPermission>);
+      expectCorrectPermissionHookCalled(isKesselEnabled);
+      expect(screen.getByText(linkText)).toBeEnabled();
+    },
+  );
 
-    expect(screen.getByText(linkText)).toBeDisabled();
-  });
-});
+  test.each([false, true])(
+    'isKesselEnabled=%s - expect to render disabled when no access',
+    (isKesselEnabled) => {
+      setPermissionMocks(isKesselEnabled, {
+        hasAccess: false,
+        isLoading: false,
+      });
 
-describe('LinkWithRBAC', () => {
-  beforeEach(() => {
-    useFeature.mockImplementation(() => true);
-  });
+      render(<LinkWithPermission to="/reports">{linkText}</LinkWithPermission>);
 
-  it('expect to render without error', () => {
-    usePermissionsWithContext.mockImplementation(() => ({
-      hasAccess: true,
-      isLoading: false,
-    }));
-    render(<LinkWithRBAC to="/reports">{linkText}</LinkWithRBAC>);
+      expectCorrectPermissionHookCalled(isKesselEnabled);
+      expect(screen.getByText(linkText)).toBeDisabled();
+    },
+  );
 
-    expect(screen.getByText(linkText)).not.toBeDisabled();
-  });
+  describe('LinkWithResolvedPermission', () => {
+    it('uses resolved permission when isKesselEnabled and hasAccess/isLoading passed, link enabled', () => {
+      useFeatureFlag.mockReturnValue(true);
 
-  it('expect to render without error and disabled', () => {
-    usePermissionsWithContext.mockImplementation(() => ({
-      hasAccess: false,
-      isLoading: false,
-    }));
-    render(<LinkWithRBAC to="/reports">Test Link</LinkWithRBAC>);
+      render(
+        <LinkWithPermission to="/reports" hasAccess={true} isLoading={false}>
+          {linkText}
+        </LinkWithPermission>,
+      );
 
-    expect(screen.getByText(linkText)).toBeDisabled();
+      expect(useRbacV1Permissions).not.toHaveBeenCalled();
+      expect(useKesselPermissions).not.toHaveBeenCalled();
+      expect(screen.getByText(linkText)).toBeEnabled();
+    });
+
+    it('uses resolved permission when isKesselEnabled and hasAccess/isLoading passed, link disabled', () => {
+      useFeatureFlag.mockReturnValue(true);
+
+      render(
+        <LinkWithPermission to="/reports" hasAccess={false} isLoading={false}>
+          {linkText}
+        </LinkWithPermission>,
+      );
+
+      expect(useRbacV1Permissions).not.toHaveBeenCalled();
+      expect(useKesselPermissions).not.toHaveBeenCalled();
+      expect(screen.getByText(linkText)).toBeDisabled();
+    });
+
+    it('uses resolved permission when isKesselEnabled and hasAccess/isLoading passed, loading state', () => {
+      useFeatureFlag.mockReturnValue(true);
+
+      render(
+        <LinkWithPermission to="/reports" hasAccess={false} isLoading={true}>
+          {linkText}
+        </LinkWithPermission>,
+      );
+
+      expect(useRbacV1Permissions).not.toHaveBeenCalled();
+      expect(useKesselPermissions).not.toHaveBeenCalled();
+      expect(screen.getByText(linkText)).toBeDisabled();
+    });
   });
 });
