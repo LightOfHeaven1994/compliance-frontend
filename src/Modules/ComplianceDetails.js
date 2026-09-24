@@ -1,31 +1,49 @@
 import React, { useRef } from 'react';
-import { ApolloClient, HttpLink, InMemoryCache } from 'apollo-boost';
-import { ApolloProvider } from '@apollo/client';
 import { Provider } from 'react-redux';
 import { init } from 'Store';
-import { FederatedModuleRouter } from '../Utilities/Router';
-import Details from '../SmartComponents/SystemDetails/ComplianceDetail';
+import Details from '../SmartComponents/SystemDetails/Details';
+import { RBACProvider } from '@redhat-cloud-services/frontend-components/RBACProvider';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AccessCheck } from '@project-kessel/react-kessel-access-check';
+import useFeatureFlag from 'Utilities/hooks/useFeatureFlag';
+import { KESSEL_API_BASE_URL } from '@/constants';
+import { useFlagsStatus } from '@unleash/proxy-client-react';
+import { CenteredSpinner, WithPermission } from 'PresentationalComponents';
+
+const queryClient = new QueryClient();
+
+const TAB_PERMISSIONS = ['compliance:system:read', 'compliance:report:read'];
 
 const ComplianceDetails = (props) => {
   const store = useRef(init().getStore());
-  const client = useRef(
-    new ApolloClient({
-      link: new HttpLink({
-        uri: '/api/compliance/graphql',
-        credentials: 'include',
-      }),
-      cache: new InMemoryCache(),
-    })
+  const isKesselEnabled = useFeatureFlag('compliance.kessel_enabled');
+  const { flagsReady } = useFlagsStatus();
+
+  if (!flagsReady) {
+    return <CenteredSpinner />;
+  }
+
+  const details = (
+    <Provider store={store.current}>
+      <WithPermission requiredPermissions={TAB_PERMISSIONS}>
+        <Details {...props} />
+      </WithPermission>
+    </Provider>
   );
 
   return (
-    <FederatedModuleRouter>
-      <ApolloProvider client={client.current}>
-        <Provider store={store.current}>
-          <Details {...props} />
-        </Provider>
-      </ApolloProvider>
-    </FederatedModuleRouter>
+    <QueryClientProvider client={queryClient}>
+      {isKesselEnabled ? (
+        <AccessCheck.Provider
+          baseUrl={window.location.origin}
+          apiPath={KESSEL_API_BASE_URL}
+        >
+          {details}
+        </AccessCheck.Provider>
+      ) : (
+        <RBACProvider appName="compliance">{details}</RBACProvider>
+      )}
+    </QueryClientProvider>
   );
 };
 
