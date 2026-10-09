@@ -1,15 +1,17 @@
 import React from 'react';
 import propTypes from 'prop-types';
-import gql from 'graphql-tag';
-import { useQuery } from '@apollo/client';
 import { useParams } from 'react-router-dom';
 import PageHeader from '@redhat-cloud-services/frontend-components/PageHeader';
 import Skeleton, {
   SkeletonSize,
 } from '@redhat-cloud-services/frontend-components/Skeleton';
-import Main from '@redhat-cloud-services/frontend-components/Main';
-import { Breadcrumb, BreadcrumbItem } from '@patternfly/react-core';
-import Details from './ComplianceDetail';
+
+import {
+  PageSection,
+  Breadcrumb,
+  BreadcrumbItem,
+} from '@patternfly/react-core';
+import Details from './Details';
 import {
   BreadcrumbLinkItem,
   StateViewWithError,
@@ -17,51 +19,66 @@ import {
 } from 'PresentationalComponents';
 import { InventoryDetails } from 'SmartComponents';
 import { useTitleEntity } from 'Utilities/hooks/useDocumentTitle';
+import useSystem from 'Utilities/hooks/api/useSystem';
+import { getAppConfig } from '@/config/appConfig';
 
-const QUERY = gql`
-  query System($inventoryId: String!) {
-    system(id: $inventoryId) {
-      id
-      name
-    }
-  }
-`;
+const PageBreadcrumb = ({ systemName }) => (
+  <Breadcrumb ouiaId="SystemDetailsPathBreadcrumb">
+    <BreadcrumbLinkItem to="/">Compliance</BreadcrumbLinkItem>
+    <BreadcrumbLinkItem to="/systems">Systems</BreadcrumbLinkItem>
+    <BreadcrumbItem isActive>{systemName}</BreadcrumbItem>
+  </Breadcrumb>
+);
 
-export const SystemDetails = ({ route }) => {
+PageBreadcrumb.propTypes = {
+  systemName: propTypes.string.isRequired,
+};
+
+const SystemDetails = ({ route }) => {
   const { inventoryId } = useParams();
-  const { data, error, loading } = useQuery(QUERY, {
-    variables: { inventoryId },
-  });
-  const systemName = data?.system?.name;
+  const isIop = getAppConfig().envTarget === 'iop';
+  const remediationsEnabled = getAppConfig().features.remediations;
+  let {
+    data: { data } = {},
+    error,
+    loading,
+  } = useSystem({ params: { systemId: inventoryId } });
+  const systemName = data?.display_name || inventoryId;
 
   useTitleEntity(route, systemName);
 
   return (
     <StateViewWithError stateValues={{ error, data, loading }}>
       <StateViewPart stateKey="data">
-        <PageHeader>
-          <Breadcrumb ouiaId="SystemDetailsPathBreadcrumb">
-            <BreadcrumbLinkItem to="/">Compliance</BreadcrumbLinkItem>
-            <BreadcrumbLinkItem to="/systems">Systems</BreadcrumbLinkItem>
-            <BreadcrumbItem isActive>{systemName}</BreadcrumbItem>
-          </Breadcrumb>
-          <InventoryDetails />
-        </PageHeader>
-        <Main>
-          <Details hidePassed inventoryId={inventoryId} />
-        </Main>
+        {/* TODO: Check if it's needed at all as we might not expose it at all in IOP */}
+        {!isIop && (
+          <PageHeader>
+            <PageBreadcrumb systemName={systemName} />
+            <InventoryDetails inventoryId={inventoryId} />
+          </PageHeader>
+        )}
+        <PageSection hasBodyWrapper={false}>
+          <Details
+            hidePassed
+            inventoryId={inventoryId}
+            system={data}
+            remediationsEnabled={remediationsEnabled}
+          />
+        </PageSection>
       </StateViewPart>
       <StateViewPart stateKey="loading">
-        <PageHeader>
-          <Skeleton size={SkeletonSize.md} />
-        </PageHeader>
+        {!isIop && (
+          <PageHeader>
+            <Skeleton size={SkeletonSize.md} />
+          </PageHeader>
+        )}
       </StateViewPart>
     </StateViewWithError>
   );
 };
 
 SystemDetails.propTypes = {
-  route: propTypes.object,
+  route: propTypes.object.isRequired,
 };
 
 export default SystemDetails;

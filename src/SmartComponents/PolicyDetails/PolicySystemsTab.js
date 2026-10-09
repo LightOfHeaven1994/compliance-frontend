@@ -1,44 +1,32 @@
-/* eslint-disable react/display-name */
 import React from 'react';
 import propTypes from 'prop-types';
 import { NoSystemsTableWithWarning } from 'PresentationalComponents';
 import { SystemsTable } from 'SmartComponents';
 import * as Columns from '../SystemsTable/Columns';
 import EditSystemsButtonToolbarItem from './EditSystemsButtonToolbarItem';
-import { useAnchor } from 'Utilities/Router';
+import NoResultsTable from 'PresentationalComponents/NoResultsTable/NoResultsTable';
 
 const PolicySystemsTab = ({ policy }) => {
-  const anchor = useAnchor();
-
   return (
     <SystemsTable
+      apiEndpoint="policySystems"
       columns={[
         Columns.customName({
           showLink: true,
         }),
-        Columns.inventoryColumn('tags'),
+        Columns.Tags,
         Columns.OS,
-        Columns.SsgVersion,
       ]}
-      showOsMinorVersionFilter={[policy.osMajorVersion]}
       policyId={policy.id}
-      defaultFilter={`policy_id = ${policy.id}`}
-      showActions={false}
-      remediationsEnabled={false}
       noSystemsTable={
-        policy?.hosts?.length === 0 && <NoSystemsTableWithWarning />
+        policy.total_system_count === 0 ? (
+          <NoSystemsTableWithWarning />
+        ) : (
+          <NoResultsTable kind="systems" />
+        )
       }
-      complianceThreshold={policy.complianceThreshold}
-      dedicatedAction={
-        <EditSystemsButtonToolbarItem
-          to={`/scappolicies/${policy.id}/edit`}
-          state={{ policy }}
-          hash={anchor}
-          backgroundLocation={{ hash: 'details' }}
-          variant="primary"
-          ouiaId="EditSystemsButton"
-        />
-      }
+      dedicatedAction={<EditSystemsButtonToolbarItem policy={policy} />}
+      ignoreOsMajorVersion
     />
   );
 };
@@ -46,9 +34,7 @@ const PolicySystemsTab = ({ policy }) => {
 PolicySystemsTab.propTypes = {
   policy: propTypes.shape({
     id: propTypes.string.isRequired,
-    complianceThreshold: propTypes.number.isRequired,
-    osMajorVersion: propTypes.string.isRequired,
-    hosts: propTypes.array.isRequired,
+    total_system_count: propTypes.number.isRequired,
   }),
   dedicatedAction: propTypes.object,
   systemTableProps: propTypes.object,
