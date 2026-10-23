@@ -1,47 +1,63 @@
 import PropTypes from 'prop-types';
 import React, { useEffect } from 'react';
-import routerParams from '@redhat-cloud-services/frontend-components-utilities/RouterParams';
-import { Routes } from './Routes';
-import NotificationsPortal from '@redhat-cloud-services/frontend-components-notifications/NotificationPortal';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+import NotificationsProvider from '@redhat-cloud-services/frontend-components-notifications/NotificationsProvider';
 import { RBACProvider } from '@redhat-cloud-services/frontend-components/RBACProvider';
+import useChrome from '@redhat-cloud-services/frontend-components/useChrome';
+import useFeatureFlag from 'Utilities/hooks/unleash/useFeatureFlag';
+import useUnleashFlagsReady from 'Utilities/hooks/unleash/useUnleashFlagsReady';
+import { AccessCheck } from '@project-kessel/react-kessel-access-check';
+import { KESSEL_API_BASE_URL } from '@/constants';
+import { getAppConfig } from '@/config/appConfig';
+import { useIopChromeContext } from '@/iop/IopChromeContext';
+import { useIopNavigationSync } from '@/iop/useIopNavigationSync';
+import { CenteredSpinner } from 'PresentationalComponents';
 
+import Routes from './Routes';
 import './App.scss';
-import { useSetFlagsFromUrl } from 'Utilities/hooks/useFeature';
 
-const appNavClick = {
-  reports(redirect) {
-    insights.chrome.appNavClick({ id: 'reports', redirect });
-  },
-  scappolicies(redirect) {
-    insights.chrome.appNavClick({ id: 'scappolicies', redirect });
-  },
-  systems(redirect) {
-    insights.chrome.appNavClick({ id: 'systems', redirect });
-  },
-};
+const queryClient = new QueryClient();
 
 const App = (props) => {
-  useSetFlagsFromUrl();
-  useEffect(() => {
-    insights.chrome.init();
-    insights.chrome?.hideGlobalFilter?.();
-    insights.chrome.identifyApp('compliance');
-    const baseComponentUrl = props.location.pathname.split('/')[1] || 'reports';
-    const unregister = insights.chrome.on('APP_NAVIGATION', (event) => {
-      if (event.domEvent) {
-        props.history.push(`/${event.navId}`);
-        appNavClick[baseComponentUrl](true);
-      }
-    });
+  const chrome = useChrome();
+  const isKesselEnabled = useFeatureFlag('compliance.kessel_enabled');
+  const flagsReady = useUnleashFlagsReady();
+  const { permissionsEpoch } = useIopChromeContext();
+  const isIop = getAppConfig().envTarget === 'iop';
 
-    return () => unregister();
-  }, []);
+  useIopNavigationSync();
+
+  useEffect(() => {
+    chrome.hideGlobalFilter(true);
+  }, [chrome]);
+
+  if (!flagsReady) {
+    return <CenteredSpinner />;
+  }
 
   return (
-    <RBACProvider appName="compliance">
-      <NotificationsPortal />
-      <Routes childProps={props} />
-    </RBACProvider>
+    <QueryClientProvider client={queryClient}>
+      {isKesselEnabled ? (
+        <AccessCheck.Provider
+          baseUrl={window.location.origin}
+          apiPath={KESSEL_API_BASE_URL}
+        >
+          <NotificationsProvider>
+            <Routes childProps={props} />
+          </NotificationsProvider>
+        </AccessCheck.Provider>
+      ) : (
+        <RBACProvider
+          key={isIop ? `iop-rbac-${permissionsEpoch}` : undefined}
+          appName="compliance"
+        >
+          <NotificationsProvider>
+            <Routes childProps={props} />
+          </NotificationsProvider>
+        </RBACProvider>
+      )}
+    </QueryClientProvider>
   );
 };
 
@@ -50,4 +66,4 @@ App.propTypes = {
   history: PropTypes.object,
 };
 
-export default routerParams(App);
+export default App;
