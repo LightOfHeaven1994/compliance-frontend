@@ -1,48 +1,45 @@
 import React from 'react';
 import { nowrap } from '@patternfly/react-table';
 import { Tooltip } from '@patternfly/react-core';
+import { DateFormat } from '@redhat-cloud-services/frontend-components/DateFormat';
 import { complianceScoreString } from 'PresentationalComponents';
-import { profilesRulesFailed } from 'Utilities/ruleHelpers';
 import { renderComponent } from 'Utilities/helpers';
 
 import {
   Name as NameCell,
   ComplianceScore as ComplianceScoreCell,
-  FailedRules as FailedRulesCell,
   LastScanned as LastScannedCell,
   Policies as PoliciesCell,
   SSGVersions as SsgVersionCell,
-  complianceScoreData,
   lastScanned,
   operatingSystemString,
   OperatingSystem as OperatingSystemCell,
+  CustomDisplay as CustomDisplayCell,
+  FailedRules as FailedRulesCell,
 } from './Cells';
 
 const disableSorting = { isStatic: true };
 
-export const compileColumnRenderFunc = ({ cell, ...column }) => ({
-  ...column,
-  renderFunc: renderComponent(cell, column.props),
-});
-
-export const customColumn = (column, props) =>
-  compileColumnRenderFunc({
-    ...column,
-    props: {
-      ...column.props,
-      ...props,
-    },
-  });
-
-export const Name = compileColumnRenderFunc({
+export const Name = {
   key: 'name',
   title: 'Name',
-  sortBy: ['name'],
+  sortable: 'display_name',
   props: {
     width: 40,
   },
-  renderExport: (system) => `${system.name} (${operatingSystemString(system)})`,
-  cell: NameCell,
+  renderExport: (system) =>
+    `${system.display_name} (${operatingSystemString(system)})`,
+  renderFunc: renderComponent(NameCell),
+};
+
+export const customDisplay = (props) => ({
+  ...Name,
+  ...props,
+  props: {
+    ...Name.props,
+    ...props,
+  },
+  renderFunc: renderComponent(CustomDisplayCell, props),
 });
 
 export const customName = (props) => ({
@@ -57,16 +54,11 @@ export const customName = (props) => ({
 export const SsgVersion = {
   title: 'SSG version',
   transforms: [nowrap],
-  exportKey: 'testResultProfiles',
-  sortBy: ['ssg_version'],
+  sortable: 'security_guide_version',
   key: 'ssg_version',
-  renderExport: (testResultProfiles) =>
-    testResultProfiles
-      .map(
-        ({ supported, benchmark: { version } }) =>
-          `${!supported ? '!' : ''}${version}`
-      )
-      .join(', '),
+  renderExport: ({ security_guide_version, supported }) => {
+    return supported ? security_guide_version : `!${security_guide_version}`;
+  },
   renderFunc: renderComponent(SsgVersionCell),
 };
 
@@ -75,7 +67,7 @@ export const Policies = {
   transforms: [nowrap],
   key: 'policies',
   exportKey: 'policies',
-  renderExport: (policies) => policies.map(({ name }) => name).join(', '),
+  renderExport: (policies) => policies.map(({ title }) => title).join(', '),
   props: {
     width: 40,
     ...disableSorting,
@@ -86,28 +78,25 @@ export const Policies = {
 export const FailedRules = {
   title: 'Failed rules',
   key: 'failedRules',
-  exportKey: 'testResultProfiles',
+  exportKey: 'failed_rule_count',
   transforms: [nowrap],
+  sortable: 'failed_rule_count',
   props: {
     width: 5,
-    ...disableSorting,
   },
-  renderExport: (testResultProfiles) =>
-    profilesRulesFailed(testResultProfiles).length,
   renderFunc: renderComponent(FailedRulesCell),
 };
 
 export const ComplianceScore = {
   title: 'Compliance score',
   key: 'complianceScore',
-  exportKey: 'testResultProfiles',
+  sortable: 'score',
   transforms: [nowrap],
   props: {
     width: 5,
-    ...disableSorting,
   },
-  renderExport: (testResultProfiles) =>
-    complianceScoreString(complianceScoreData(testResultProfiles)).trim(),
+  renderExport: ({ score, supported, compliant }) =>
+    complianceScoreString({ score, supported, compliant }),
   renderFunc: renderComponent(ComplianceScoreCell),
 };
 
@@ -115,25 +104,12 @@ export const LastScanned = {
   title: 'Last scanned',
   key: 'lastScanned',
   transforms: [nowrap],
-  exportKey: 'testResultProfiles',
-  props: {
-    width: 10,
-    ...disableSorting,
-  },
-  renderExport: (testResultProfiles) => lastScanned(testResultProfiles),
+  props: { width: 10, ...disableSorting },
+  renderExport: ({ end_time }) => lastScanned(end_time),
   renderFunc: renderComponent(LastScannedCell),
 };
 
-export const OperatingSystem = compileColumnRenderFunc({
-  title: 'Operating system',
-  key: 'operatingSystem',
-  sortBy: ['osMajorVersion', 'osMinorVersion'],
-  transforms: [nowrap],
-  renderExport: (cell) => operatingSystemString(cell),
-  cell: OperatingSystemCell,
-});
-
-export const OS = compileColumnRenderFunc({
+export const OS = {
   title: (
     <Tooltip content={<span>Operating System</span>}>
       <span>OS</span>
@@ -143,15 +119,39 @@ export const OS = compileColumnRenderFunc({
   key: 'operatingSystem',
   dataLabel: 'OS',
   transforms: [nowrap],
-  sortBy: ['osMajorVersion', 'osMinorVersion'],
+  sortable: 'os_version',
   props: {
     width: 10,
   },
   renderExport: (cell) => operatingSystemString(cell),
-  cell: OperatingSystemCell,
-});
+  renderFunc: renderComponent(OperatingSystemCell),
+};
 
 export const inventoryColumn = (column, props) => ({
   key: column,
   ...props,
+});
+
+export const Workspaces = inventoryColumn('groups', {
+  title: 'Workspaces',
+  requiresDefault: true,
+  sortable: 'groups',
+  renderExport: ({ groups }) => groups.map(({ name }) => name).join(', '),
+});
+
+export const LastSeen = inventoryColumn('updated', {
+  title: 'Last seen',
+  props: { isStatic: true },
+  transforms: [nowrap],
+  renderFunc: (value) => (
+    <span className="pf-v6-u-text-nowrap">
+      <DateFormat date={value} />
+    </span>
+  ),
+  renderExport: ({ updated }) => updated,
+});
+
+export const Tags = inventoryColumn('tags', {
+  title: 'Tags',
+  renderExport: ({ tags }) => tags.length,
 });
